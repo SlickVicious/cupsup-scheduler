@@ -262,6 +262,14 @@
     let employeeList = [];
     let weekData = {};
 
+    // Sanitize HTML to prevent XSS attacks
+    function sanitizeHTML(text) {
+      if (text == null || text === undefined) return '';
+      const div = document.createElement('div');
+      div.textContent = String(text);
+      return div.innerHTML;
+    }
+
     // Initialize
     google.script.run
       .withSuccessHandler(init)
@@ -280,9 +288,9 @@
       $('#weekStart').value = monday.toISOString().slice(0,10);
 
       $('#meta').innerHTML = `
-        <span>🕐 ${boot.settings.TIMEZONE || 'Unknown TZ'}</span>
+        <span>🕐 ${sanitizeHTML(boot.settings.TIMEZONE) || 'Unknown TZ'}</span>
         <span>👥 ${boot.employees.length} employees</span>
-        <span>📆 ${boot.settings.CALENDAR_ID || 'No calendar'}</span>
+        <span>📆 ${sanitizeHTML(boot.settings.CALENDAR_ID) || 'No calendar'}</span>
       `;
 
       loadWeek();
@@ -331,11 +339,11 @@
 
       div.innerHTML = `
         <div class="event-header">
-          <div class="pill">${formatDate(ev.date)}</div>
-          <div class="time">⏰ ${ev.start} – ${ev.end}</div>
+          <div class="pill">${sanitizeHTML(formatDate(ev.date))}</div>
+          <div class="time">⏰ ${sanitizeHTML(ev.start)} – ${sanitizeHTML(ev.end)}</div>
         </div>
-        <div class="event-title">${ev.title}</div>
-        <div class="location">📍 ${location}</div>
+        <div class="event-title">${sanitizeHTML(ev.title)}</div>
+        <div class="location">📍 ${sanitizeHTML(location)}</div>
 
         <div class="assignments">
           <div class="assignments-header">
@@ -385,11 +393,11 @@
         <select data-event="${eventIdx}" data-staff="${staffIdx}">
           <option value="">-- Select Employee --</option>
           ${employeeList.map(emp =>
-            `<option value="${emp.Name}" ${emp.Name === selectedName ? 'selected' : ''}>${emp.Name} (${emp.Role})</option>`
+            `<option value="${sanitizeHTML(emp.Name)}" ${emp.Name === selectedName ? 'selected' : ''}>${sanitizeHTML(emp.Name)} (${sanitizeHTML(emp.Role)})</option>`
           ).join('')}
         </select>
-        <input type="time" value="${startTime}" data-event="${eventIdx}" data-staff="${staffIdx}" data-field="start">
-        <input type="time" value="${endTime}" data-event="${eventIdx}" data-staff="${staffIdx}" data-field="end">
+        <input type="time" value="${sanitizeHTML(startTime)}" data-event="${eventIdx}" data-staff="${staffIdx}" data-field="start">
+        <input type="time" value="${sanitizeHTML(endTime)}" data-event="${eventIdx}" data-staff="${staffIdx}" data-field="end">
         <button class="remove-btn" onclick="removeStaffRow(this)">✕</button>
       `;
 
@@ -438,7 +446,7 @@
       const w = $('#weekStart').value;
       google.script.run
         .withSuccessHandler((res) => {
-          alert(`📱 Group chat sent to ${res.numbers} recipients!`);
+          alert(`📱 Group chat sent to ${sanitizeHTML(res.numbers)} recipients!`);
         })
         .withFailureHandler(showError)
         .api_sendGroupChat(w);
@@ -446,7 +454,7 @@
 
     function showError(err) {
       console.error('Error:', err);
-      alert('Error: ' + (err.message || 'Something went wrong'));
+      alert('Error: ' + sanitizeHTML(err.message || 'Something went wrong'));
     }
 
     function formatDate(dateStr) {

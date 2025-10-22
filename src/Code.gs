@@ -13,7 +13,8 @@ function doGet(e) {
   return HtmlService.createTemplateFromFile('ui')
     .evaluate()
     .setTitle('CupsUp Scheduler')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMo
+     de.DENY);
 }
 
 /* ---------- Utilities ---------- */
@@ -204,9 +205,19 @@ function saveAssignment(weekStartIso, eventId, eventData, assignments) {
 
   // Validate assignments
   if (assignments && assignments.length > 0) {
+    // Validate assignment count
+    if (assignments.length > 10) {
+      throw new Error('Maximum 10 staff assignments per event. Please reduce assignments.');
+    }
+
     assignments.forEach((a, idx) => {
       if (!a.name) throw new Error(`Assignment ${idx + 1}: Employee name is required`);
       if (!a.start || !a.end) throw new Error(`Assignment ${idx + 1}: Start and end times are required`);
+
+      // Validate name length
+      if (a.name.length > 50) {
+        throw new Error(`Assignment ${idx + 1}: Employee name too long (${a.name.length} chars). Maximum 50 characters.`);
+      }
 
       // Validate time format
       if (!a.start.match(/^\d{2}:\d{2}$/) || !a.end.match(/^\d{2}:\d{2}$/)) {
@@ -218,6 +229,11 @@ function saveAssignment(weekStartIso, eventId, eventData, assignments) {
         throw new Error(`Assignment ${idx + 1}: Start time must be before end time`);
       }
     });
+  }
+
+  // Validate event title length
+  if (eventData.title && eventData.title.length > 100) {
+    throw new Error(`Event title too long (${eventData.title.length} chars). Maximum 100 characters.`);
   }
 
   const last = sh.getLastRow();
@@ -291,6 +307,25 @@ function sendGroupChatSchedule(weekStartIso) {
     throw new Error('No valid phone numbers found in GROUP_CHAT_NUMBERS.');
   }
 
+  // ENHANCEMENT 1: Check daily send limit (10 per day)
+  const props = PropertiesService.getScriptProperties();
+  const today = new Date().toISOString().slice(0, 10);
+  const dailySends = parseInt(props.getProperty('SENDS_' + today) || '0');
+
+  if (dailySends >= 10) {
+    const now = new Date();
+    const midnight = new Date(now);
+    midnight.setHours(24, 0, 0, 0);
+    const hoursUntilReset = Math.ceil((midnight - now) / (1000 * 60 * 60));
+    throw new Error(`Daily send limit reached (10/day). Limit resets in ${hoursUntilReset} hours at midnight.`);
+  }
+
+  // ENHANCEMENT 2: Validate recipient count (max 50)
+  const MAX_RECIPIENTS = 50;
+  if (numbers.length > MAX_RECIPIENTS) {
+    throw new Error(`Too many recipients (${numbers.length}). Maximum ${MAX_RECIPIENTS} allowed per send.`);
+  }
+
   // Get all assignments for the week
   const sh = getSheet(DB_SHEET.ASSIGN);
   const last = sh.getLastRow();
@@ -351,13 +386,39 @@ function sendGroupChatSchedule(weekStartIso) {
 
   message += `Reply STOP to unsubscribe`;
 
-  // Rate limiting check (prevent spam)
-  const props = PropertiesService.getScriptProperties();
+  // ENHANCEMENT 3: Validate message size (max 1600 characters = 10 SMS segments)
+  const MAX_MESSAGE_LENGTH = 1600;
+  if (message.length > MAX_MESSAGE_LENGTH) {
+    throw new Error(`Message too large (${message.length} characters). Maximum ${MAX_MESSAGE_LENGTH} characters allowed (10 SMS segments). Please reduce the schedule size.`);
+  }
+
+  // ENHANCEMENT 4: Calculate SMS segments and estimated cost
+  const SMS_SEGMENT_SIZE = 160;
+  const COST_PER_MESSAGE = 0.0079; // Twilio US pricing
+  const segments = Math.ceil(message.length / SMS_SEGMENT_SIZE);
+  const totalMessages = numbers.length * segments;
+  const estimatedCost = (totalMessages * COST_PER_MESSAGE).toFixed(2);
+
+  // Log message size info
+  Logger.log(`Message size: ${message.length} characters, ${segments} SMS segment(s)`);
+  Logger.log(`Recipients: ${numbers.length}, Total messages: ${totalMessages}, Estimated cost: $${estimatedCost}`);
+
+  // ENHANCEMENT 5: Warning for multi-segment messages
+  if (segments > 1) {
+    Logger.log(`WARNING: Message will be split into ${segments} SMS segments. Each recipient will receive ${segments} messages.`);
+  }
+
+  // ENHANCEMENT 6: Warning for large sends (>20 recipients)
+  if (numbers.length > 20) {
+    Logger.log(`LARGE SEND WARNING: ${numbers.length} recipients, ~$${estimatedCost} estimated cost`);
+  }
+
+  // Rate limiting check (prevent spam) - 60 second cooldown
   const lastSend = props.getProperty('LAST_GROUP_CHAT_SEND');
   if (lastSend) {
     const timeSince = Date.now() - parseInt(lastSend);
     if (timeSince < 60000) { // 1 minute cooldown
-      throw new Error(`Please wait ${Math.ceil((60000 - timeSince) / 1000)} seconds before sending another group chat.`);
+      throw new Error(`Rate limit: Please wait ${Math.ceil((60000 - timeSince) / 1000)} seconds before sending another group chat.`);
     }
   }
 
@@ -377,6 +438,9 @@ function sendGroupChatSchedule(weekStartIso) {
 
   // Update rate limit timestamp
   props.setProperty('LAST_GROUP_CHAT_SEND', Date.now().toString());
+
+  // ENHANCEMENT 7: Update daily counter after successful send
+  props.setProperty('SENDS_' + today, (dailySends + 1).toString());
 
   // Mark all as sent (or log errors)
   const timestamp = new Date().toISOString();
@@ -399,6 +463,11 @@ function sendGroupChatSchedule(weekStartIso) {
   return {
     count: sent,
     numbers: numbers.length,
+    segments: segments,
+    messageLength: message.length,
+    totalMessages: totalMessages,
+    estimatedCost: estimatedCost,
+    dailySendsRemaining: 9 - dailySends,
     preview: message.substring(0, 200) + '...',
     errors: errors.length > 0 ? errors : undefined
   };
