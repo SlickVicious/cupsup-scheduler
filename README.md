@@ -38,11 +38,13 @@ This repository includes revolutionary Claude Code documentation that enables **
 
 ### Quick Start with Sub-Agents
 
+The magic phrase to append to EVERY command:
 ```bash
-# The magic phrase to append to EVERY command:
 [your task] use a sub agent. Tell the sub agent not to report back, but to just do the job
+```
 
-# Example - Build entire project in 5 minutes:
+Example - Build entire project in 5 minutes:
+```bash
 create complete CupsUp Scheduler repository use a sub agent. Tell the sub agent not to report back, but to just do the job
 ```
 
@@ -191,20 +193,28 @@ Reply STOP to unsubscribe
 
 ### Local Development with clasp
 
+Install clasp
 ```bash
-# Install clasp
 npm install -g @google/clasp
+```
 
-# Login to Google
+Login to Google
+```bash
 clasp login
+```
 
-# Clone this project
+Clone this project
+```bash
 clasp clone <SCRIPT_ID>
+```
 
-# Push changes
+Push changes
+```bash
 clasp push
+```
 
-# Pull changes
+Pull changes
+```bash
 clasp pull
 ```
 

@@ -47,10 +47,11 @@
 
     input, button, select {
       font-size: 16px;
-      padding: 12px 16px;
-      border-radius: 10px;
+      padding: 14px 18px;
+      border-radius: 12px;
       border: 1px solid #ddd;
       font-family: inherit;
+      min-height: 48px;
     }
 
     input[type="date"] {
@@ -163,13 +164,14 @@
     }
 
     .add-staff-btn {
-      font-size: 12px;
-      padding: 6px 12px;
+      font-size: 14px;
+      padding: 10px 16px;
       background: #48bb78;
       color: white;
       border: none;
-      border-radius: 6px;
+      border-radius: 8px;
       cursor: pointer;
+      min-height: 44px;
     }
 
     .staff-row {
@@ -181,36 +183,41 @@
 
     .staff-row select {
       flex: 2;
-      padding: 8px;
-      font-size: 14px;
+      padding: 12px;
+      font-size: 15px;
+      min-height: 48px;
     }
 
     .staff-row input[type="time"] {
       flex: 1;
-      padding: 8px;
-      font-size: 14px;
+      padding: 12px;
+      font-size: 15px;
+      min-height: 48px;
     }
 
     .remove-btn {
       background: #f56565;
       color: white;
       border: none;
-      padding: 8px 12px;
-      border-radius: 6px;
+      padding: 12px 16px;
+      border-radius: 8px;
       cursor: pointer;
-      font-size: 12px;
+      font-size: 14px;
+      min-height: 48px;
     }
 
     .save-btn {
-      margin-top: 8px;
+      margin-top: 12px;
       width: 100%;
       background: #667eea;
       color: white;
       border: none;
-      padding: 10px;
-      border-radius: 8px;
+      padding: 16px;
+      border-radius: 12px;
       font-weight: 600;
       cursor: pointer;
+      font-size: 16px;
+      min-height: 52px;
     }
 
     .loader {
@@ -227,13 +234,146 @@
       border-radius: 16px;
     }
 
+    .edit-location-btn {
+      background: #f59e0b;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      margin-left: 8px;
+      min-height: 40px;
+    }
+
+    .edit-location-btn:hover {
+      background: #d97706;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+    }
+
+    .modal-content {
+      background: white;
+      margin: 10% auto;
+      padding: 24px;
+      border-radius: 16px;
+      max-width: 500px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+
+    .modal-header {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    .modal-form label {
+      display: block;
+      margin-top: 12px;
+      margin-bottom: 4px;
+      font-weight: 500;
+      font-size: 14px;
+    }
+
+    .modal-form input,
+    .modal-form textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-family: inherit;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 20px;
+    }
+
+    .modal-actions button {
+      flex: 1;
+    }
+
     @media (max-width: 600px) {
+      body {
+        padding: 8px;
+      }
+
+      h1 {
+        font-size: 22px;
+      }
+
+      .controls {
+        gap: 10px;
+      }
+
+      .controls button {
+        font-size: 15px;
+        padding: 14px 16px;
+      }
+
+      .event-card {
+        padding: 14px;
+      }
+
+      .event-title {
+        font-size: 17px;
+      }
+
+      .location {
+        font-size: 13px;
+        margin: 6px 0;
+      }
+
+      .edit-location-btn {
+        display: block;
+        margin: 8px 0 0 0;
+        width: 100%;
+      }
+
       .staff-row {
         flex-wrap: wrap;
+        gap: 10px;
       }
-      .staff-row select,
-      .staff-row input {
-        flex: 1 1 45%;
+
+      .staff-row select {
+        flex: 1 1 100%;
+        min-width: 100%;
+      }
+
+      .staff-row input[type="time"] {
+        flex: 1 1 calc(50% - 5px);
+        min-width: calc(50% - 5px);
+      }
+
+      .remove-btn {
+        flex: 1 1 100%;
+        width: 100%;
+        margin-top: 4px;
+      }
+
+      .assignments-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+      }
+
+      .add-staff-btn {
+        width: 100%;
+      }
+
+      .modal-content {
+        margin: 5% 12px;
+        max-width: calc(100% - 24px);
       }
     }
   </style>
@@ -241,20 +381,47 @@
 <body>
   <div class="container">
     <header>
-      <h1><span class="logo">☕</span> CupsUp Scheduler</h1>
+      <h1>CupsUp Scheduler</h1>
 
       <div class="controls">
         <input id="weekStart" type="date" />
-        <button class="primary" onclick="loadWeek()">📅 Fetch Week</button>
-        <button class="success" onclick="sendGroupChat()">💬 Send to Group Chat</button>
+        <button class="primary" onclick="loadWeek()">Fetch Week</button>
+        <button class="success" onclick="sendGroupChat()">Send to Group Chat</button>
       </div>
 
       <div class="meta" id="meta">
-        <span>⏰ Loading...</span>
+        <span>Loading...</span>
       </div>
     </header>
 
     <div id="events" class="loader">Loading scheduler...</div>
+  </div>
+
+  <!-- Location Edit Modal -->
+  <div id="locationModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">Add/Edit Location</div>
+      <div class="modal-form">
+        <label>Event Name</label>
+        <input type="text" id="modalEventName" readonly style="background: #f5f5f5;">
+
+        <label>Full Address</label>
+        <input type="text" id="modalAddress" placeholder="123 Main St, City, ST 12345">
+
+        <label>City</label>
+        <input type="text" id="modalCity" placeholder="City name">
+
+        <label>State</label>
+        <input type="text" id="modalState" placeholder="VA" maxlength="2">
+
+        <label>Notes (optional)</label>
+        <textarea id="modalNotes" rows="2" placeholder="Any special instructions..."></textarea>
+      </div>
+      <div class="modal-actions">
+        <button onclick="closeLocationModal()" style="background: #999;">Cancel</button>
+        <button onclick="saveLocationModal()" class="primary">Save Location</button>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -288,9 +455,9 @@
       $('#weekStart').value = monday.toISOString().slice(0,10);
 
       $('#meta').innerHTML = `
-        <span>🕐 ${sanitizeHTML(boot.settings.TIMEZONE) || 'Unknown TZ'}</span>
-        <span>👥 ${boot.employees.length} employees</span>
-        <span>📆 ${sanitizeHTML(boot.settings.CALENDAR_ID) || 'No calendar'}</span>
+        <span>${sanitizeHTML(boot.settings.TIMEZONE) || 'Unknown TZ'}</span>
+        <span>${boot.employees.length} employees</span>
+        <span>${sanitizeHTML(boot.settings.CALENDAR_ID) || 'No calendar'}</span>
       `;
 
       loadWeek();
@@ -314,8 +481,7 @@
       if (!data.events || data.events.length === 0) {
         container.innerHTML = `
           <div class="empty-state">
-            <div style="font-size:64px">📭</div>
-            <div style="color:#666;font-size:16px">No events this week</div>
+            <div style="font-size:24px;color:#999">No events this week</div>
           </div>
         `;
         return;
@@ -332,18 +498,43 @@
       div.className = 'event-card';
       div.dataset.eventIdx = idx;
 
-      const location = [ev.city, ev.state].filter(Boolean).join(', ') || ev.locationRaw || 'No location';
+      // Display full address if available, otherwise city/state, otherwise event location raw
+      let location = '';
+      if (ev.fullAddress) {
+        location = ev.fullAddress;
+      } else if (ev.city || ev.state) {
+        location = [ev.city, ev.state].filter(Boolean).join(', ');
+      } else if (ev.locationRaw) {
+        location = ev.locationRaw;
+      } else {
+        location = 'No location';
+      }
 
       // Get existing assignments or create empty array
       const assignments = weekData.assignments?.[ev.id] || [];
 
+      // Build location display with map link if available
+      let locationHTML = '';
+      if (ev.mapLink) {
+        locationHTML = `<a href="${sanitizeHTML(ev.mapLink)}" target="_blank" style="color: #667eea; text-decoration: none; word-break: break-word;">📍 ${sanitizeHTML(location)}</a>`;
+      } else {
+        locationHTML = `<span style="word-break: break-word;">📍 ${sanitizeHTML(location)}</span>`;
+      }
+
+      // Add "Add Location" button for events without location
+      if (!ev.locationRaw || ev.locationRaw === 'No location') {
+        locationHTML += `<button class="edit-location-btn" onclick="openLocationModal(${idx})">+ Add Location</button>`;
+      } else if (ev.venueSource === 'database') {
+        locationHTML += `<button class="edit-location-btn" onclick="openLocationModal(${idx})">✏️ Edit</button>`;
+      }
+
       div.innerHTML = `
         <div class="event-header">
           <div class="pill">${sanitizeHTML(formatDate(ev.date))}</div>
-          <div class="time">⏰ ${sanitizeHTML(ev.start)} – ${sanitizeHTML(ev.end)}</div>
+          <div class="time">${sanitizeHTML(ev.start)} – ${sanitizeHTML(ev.end)}</div>
         </div>
         <div class="event-title">${sanitizeHTML(ev.title)}</div>
-        <div class="location">📍 ${sanitizeHTML(location)}</div>
+        <div class="location">${locationHTML}</div>
 
         <div class="assignments">
           <div class="assignments-header">
@@ -351,7 +542,7 @@
             <button class="add-staff-btn" onclick="addStaffRow(${idx})">+ Add Staff</button>
           </div>
           <div id="staff-list-${idx}"></div>
-          <button class="save-btn" onclick="saveAssignments(${idx})">💾 Save Assignments</button>
+          <button class="save-btn" onclick="saveAssignments(${idx})">Save Assignments</button>
         </div>
       `;
 
@@ -376,10 +567,11 @@
       });
     }
 
-    function addStaffRow(eventIdx, selectedName = '', startTime = '', endTime = '', staffIdx = null) {
+    function addStaffRow(eventIdx, selectedName = '', startTime = null, endTime = null, staffIdx = null) {
       const event = weekData.events[eventIdx];
-      if (!startTime) startTime = event.start;
-      if (!endTime) endTime = event.end;
+      // Always use event default times if not explicitly provided
+      if (startTime === null || startTime === '') startTime = event.start;
+      if (endTime === null || endTime === '') endTime = event.end;
 
       const container = document.getElementById(`staff-list-${eventIdx}`);
       const row = document.createElement('div');
@@ -398,7 +590,7 @@
         </select>
         <input type="time" value="${sanitizeHTML(startTime)}" data-event="${eventIdx}" data-staff="${staffIdx}" data-field="start">
         <input type="time" value="${sanitizeHTML(endTime)}" data-event="${eventIdx}" data-staff="${staffIdx}" data-field="end">
-        <button class="remove-btn" onclick="removeStaffRow(this)">✕</button>
+        <button class="remove-btn" onclick="removeStaffRow(this)">Remove</button>
       `;
 
       container.appendChild(row);
@@ -431,7 +623,7 @@
       // Save to backend
       google.script.run
         .withSuccessHandler(() => {
-          alert('✅ Assignments saved!');
+          alert('Assignments saved successfully!');
           // Update local data
           if (!weekData.assignments) weekData.assignments = {};
           weekData.assignments[event.id] = assignments;
@@ -446,7 +638,7 @@
       const w = $('#weekStart').value;
       google.script.run
         .withSuccessHandler((res) => {
-          alert(`📱 Group chat sent to ${sanitizeHTML(res.numbers)} recipients!`);
+          alert(`Group chat sent to ${sanitizeHTML(res.numbers)} recipients!`);
         })
         .withFailureHandler(showError)
         .api_sendGroupChat(w);
@@ -462,6 +654,59 @@
       const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       return `${days[date.getDay()]} ${months[date.getMonth()]} ${date.getDate()}`;
+    }
+
+    // Location modal functions
+    let currentLocationEventIdx = null;
+
+    function openLocationModal(eventIdx) {
+      currentLocationEventIdx = eventIdx;
+      const event = weekData.events[eventIdx];
+
+      $('#modalEventName').value = event.title;
+      $('#modalAddress').value = event.fullAddress || event.locationRaw || '';
+      $('#modalCity').value = event.city || '';
+      $('#modalState').value = event.state || '';
+      $('#modalNotes').value = '';
+
+      $('#locationModal').style.display = 'block';
+    }
+
+    function closeLocationModal() {
+      $('#locationModal').style.display = 'none';
+      currentLocationEventIdx = null;
+    }
+
+    function saveLocationModal() {
+      if (currentLocationEventIdx === null) return;
+
+      const event = weekData.events[currentLocationEventIdx];
+      const venueName = event.title;
+      const fullAddress = $('#modalAddress').value.trim();
+      const city = $('#modalCity').value.trim();
+      const state = $('#modalState').value.trim().toUpperCase();
+      const notes = $('#modalNotes').value.trim();
+
+      if (!fullAddress && !city) {
+        alert('Please enter at least a full address or city');
+        return;
+      }
+
+      google.script.run
+        .withSuccessHandler(() => {
+          alert('Location saved successfully! Refreshing...');
+          closeLocationModal();
+          loadWeek(); // Reload to show updated location
+        })
+        .withFailureHandler(showError)
+        .api_saveVenue(venueName, fullAddress, city, state, notes);
+    }
+
+    // Close modal when clicking outside
+    window.onclick = function(event) {
+      if (event.target == $('#locationModal')) {
+        closeLocationModal();
+      }
     }
   </script>
 </body>

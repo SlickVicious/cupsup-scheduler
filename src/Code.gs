@@ -7,14 +7,15 @@ const DB_SHEET = {
   SETTINGS: 'Settings',
   EMPLOYEES: 'Employees',
   ASSIGN: 'Assignments',
+  VENUES: 'Venues',
 };
 
 function doGet(e) {
-  return HtmlService.createTemplateFromFile('ui')
-    .evaluate()
+  const template = HtmlService.createTemplateFromFile('ui');
+  return template.evaluate()
     .setTitle('CupsUp Scheduler')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMo
-     de.DENY);
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
 /* ---------- Utilities ---------- */
@@ -86,34 +87,181 @@ function fetchWeekEvents(weekStartIso) {
   try {
     const events = cal.getEvents(start, end);
 
-    return events.map(ev => {
-      const loc = (ev.getLocation() || '').trim();
-      const { city, state } = parseCityState(loc);
-      return {
-        id: ev.getId(),
-        title: ev.getTitle(),
-        date: isoDate(ev.getStartTime()),
-        start: isoTime(ev.getStartTime()),
-        end: isoTime(ev.getEndTime()),
-        city,
-        state,
-        locationRaw: loc
-      };
-    }).sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start));
+    return events
+      .filter(ev => {
+        const title = ev.getTitle().toLowerCase();
+        // Filter out non-events (notes about availability, etc.)
+        const excludePatterns = ['needs off', 'unavailable', 'out of office', 'pto', 'vacation'];
+        return !excludePatterns.some(pattern => title.includes(pattern));
+      })
+      .map(ev => {
+        let loc = (ev.getLocation() || '').trim();
+        let { city, state, fullAddress } = parseCityState(loc);
+        let venueSource = loc ? 'calendar' : null;
+
+        // Auto-save new venues with locations from calendar
+        if (loc) {
+          const existingVenue = lookupVenue(ev.getTitle());
+          if (!existingVenue) {
+            // New venue with location - save it automatically
+            try {
+              saveVenue(ev.getTitle(), loc, city, state, 'Auto-saved from calendar');
+            } catch (e) {
+              // Silently fail if venue save errors - don't break event fetching
+              Logger.log(`Failed to auto-save venue "${ev.getTitle()}": ${e.message}`);
+            }
+          }
+        }
+
+        // If no location in calendar, try venue lookup
+        if (!loc) {
+          const venue = lookupVenue(ev.getTitle());
+          if (venue && venue.address) {
+            loc = venue.address;
+            fullAddress = venue.address;
+            city = venue.city;
+            state = venue.state;
+            venueSource = 'database';
+          }
+        }
+
+        // Generate map link if location exists
+        const mapLink = loc ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}` : '';
+
+        return {
+          id: ev.getId(),
+          title: ev.getTitle(),
+          date: isoDate(ev.getStartTime()),
+          start: isoTime(ev.getStartTime()),
+          end: isoTime(ev.getEndTime()),
+          city,
+          state,
+          locationRaw: loc,
+          fullAddress,
+          mapLink,
+          venueSource  // 'calendar', 'database', or null
+        };
+      })
+      .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start));
   } catch (e) {
     throw new Error(`Calendar error: ${e.message}. Check that calendar is shared with edit permissions.`);
   }
 }
 
 function parseCityState(location) {
-  if (!location) return { city: '', state: '' };
+  if (!location) return { city: '', state: '', fullAddress: '' };
+
   const parts = location.split(',').map(s => s.trim()).filter(Boolean);
-  if (parts.length >= 2) {
-    const state = parts[parts.length - 1].split(' ')[0].toUpperCase().slice(0, 2);
-    const city  = parts[parts.length - 2];
-    return { city, state };
+
+  // Handle full addresses like "123 Street, City, ST 12345, Country"
+  // Look for state abbreviation (2 uppercase letters) followed by zip
+  let city = '';
+  let state = '';
+
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    // Check if this part contains state abbreviation and zip (e.g., "VA 23454")
+    const stateZipMatch = part.match(/\b([A-Z]{2})\s+\d{5}/);
+    if (stateZipMatch) {
+      state = stateZipMatch[1];
+      // City is typically the part before this
+      if (i > 0) {
+        city = parts[i - 1];
+      }
+      break;
+    }
   }
-  return { city: location, state: '' };
+
+  // Fallback to simple parsing if no state/zip pattern found
+  if (!city && parts.length >= 2) {
+    // Filter out "USA", "US", etc.
+    const filteredParts = parts.filter(p => !p.match(/^(USA?|United States)$/i));
+    if (filteredParts.length >= 2) {
+      const lastPart = filteredParts[filteredParts.length - 1];
+      state = lastPart.split(' ')[0].toUpperCase().slice(0, 2);
+      city = filteredParts[filteredParts.length - 2];
+    }
+  }
+
+  // If still no data, use first part as venue name
+  if (!city && parts.length > 0) {
+    city = parts[0];
+  }
+
+  return { city, state, fullAddress: location };
+}
+
+/* ---------- Venues ---------- */
+function getVenues() {
+  const sh = getSheet(DB_SHEET.VENUES);
+  if (!sh) {
+    // Create Venues sheet if it doesn't exist
+    const ss = getSpreadsheet();
+    const newSheet = ss.insertSheet(DB_SHEET.VENUES);
+    newSheet.getRange(1, 1, 1, 5).setValues([[
+      'Venue Name', 'Full Address', 'City', 'State', 'Notes'
+    ]]);
+    return [];
+  }
+
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) return [];
+
+  const rows = sh.getRange(2, 1, lastRow - 1, 5).getValues();
+  return rows.filter(r => r[0]).map(([name, address, city, state, notes]) => ({
+    name: String(name).trim(),
+    address: String(address || '').trim(),
+    city: String(city || '').trim(),
+    state: String(state || '').trim(),
+    notes: String(notes || '').trim()
+  }));
+}
+
+function lookupVenue(eventTitle) {
+  const venues = getVenues();
+  const titleLower = eventTitle.toLowerCase().trim();
+
+  // Try exact match first
+  let match = venues.find(v => v.name.toLowerCase() === titleLower);
+
+  // Try partial match (venue name contained in event title)
+  if (!match) {
+    match = venues.find(v => {
+      const venueLower = v.name.toLowerCase();
+      return titleLower.includes(venueLower) || venueLower.includes(titleLower);
+    });
+  }
+
+  return match || null;
+}
+
+function saveVenue(venueName, fullAddress, city, state, notes = '') {
+  const sh = getSheet(DB_SHEET.VENUES);
+  if (!sh) {
+    throw new Error('Venues sheet not found');
+  }
+
+  // Check if venue already exists
+  const venues = getVenues();
+  const existingIdx = venues.findIndex(v =>
+    v.name.toLowerCase() === venueName.toLowerCase()
+  );
+
+  if (existingIdx >= 0) {
+    // Update existing venue
+    const rowIdx = existingIdx + 2; // +2 for header and 0-index
+    sh.getRange(rowIdx, 1, 1, 5).setValues([[
+      venueName, fullAddress, city, state, notes
+    ]]);
+  } else {
+    // Add new venue
+    const newRow = sh.getLastRow() + 1;
+    sh.getRange(newRow, 1, 1, 5).setValues([[
+      venueName, fullAddress, city, state, notes
+    ]]);
+  }
+
+  return { success: true };
 }
 
 /* ---------- Employees ---------- */
@@ -556,6 +704,177 @@ function api_sendGroupChat(weekStartIso) {
   }
 }
 
+function api_saveVenue(venueName, fullAddress, city, state, notes) {
+  try {
+    return saveVenue(venueName, fullAddress, city, state, notes);
+  } catch (e) {
+    throw new Error(`Failed to save venue: ${e.message}`);
+  }
+}
+
+/* ---------- VENUE MAINTENANCE ---------- */
+function removeDuplicateVenues() {
+  const ui = SpreadsheetApp.getUi();
+
+  const response = ui.alert(
+    'Remove Duplicate Venues',
+    'This will remove duplicate venue entries from the Venues sheet.\n\n' +
+    'Duplicates are identified by matching venue names (case-insensitive).\n' +
+    'The first occurrence will be kept.\n\n' +
+    'Continue?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (response !== ui.Button.YES) {
+    return;
+  }
+
+  try {
+    const sh = getSheet(DB_SHEET.VENUES);
+    if (!sh) {
+      throw new Error('Venues sheet not found');
+    }
+
+    const lastRow = sh.getLastRow();
+    if (lastRow < 2) {
+      ui.alert('No venues found', 'The Venues sheet is empty.', ui.ButtonSet.OK);
+      return;
+    }
+
+    const data = sh.getRange(2, 1, lastRow - 1, 5).getValues();
+    const seen = new Set();
+    const rowsToDelete = [];
+
+    // Identify duplicates (case-insensitive venue name comparison)
+    data.forEach((row, idx) => {
+      const venueName = String(row[0]).trim().toLowerCase();
+
+      if (!venueName) {
+        // Empty row
+        rowsToDelete.push(idx + 2); // +2 for header and 0-index
+        return;
+      }
+
+      if (seen.has(venueName)) {
+        // Duplicate found
+        rowsToDelete.push(idx + 2); // +2 for header and 0-index
+      } else {
+        seen.add(venueName);
+      }
+    });
+
+    if (rowsToDelete.length === 0) {
+      ui.alert('✅ No Duplicates Found', 'All venues are unique!', ui.ButtonSet.OK);
+      return;
+    }
+
+    // Delete rows in reverse order to maintain row indices
+    rowsToDelete.reverse().forEach(rowNum => {
+      sh.deleteRow(rowNum);
+    });
+
+    ui.alert(
+      '✅ Duplicates Removed!',
+      `Removed ${rowsToDelete.length} duplicate/empty rows.\n\n` +
+      `Kept ${seen.size} unique venues.`,
+      ui.ButtonSet.OK
+    );
+
+  } catch (e) {
+    ui.alert('❌ Remove Failed', e.message, ui.ButtonSet.OK);
+  }
+}
+
+/* ---------- ONE-TIME VENUE IMPORT ---------- */
+function bulkImportHistoricalVenues() {
+  const ui = SpreadsheetApp.getUi();
+
+  const response = ui.alert(
+    'Bulk Import Historical Venues',
+    'This will scan your calendar (last 6 months + next 6 months)\n' +
+    'and import all event locations to the Venues sheet.\n\n' +
+    'Run this ONCE to catch up historical data.\n' +
+    'After this, new venues are auto-saved when you fetch events.\n\n' +
+    'Continue?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (response !== ui.Button.YES) {
+    return;
+  }
+
+  try {
+    const { CALENDAR_ID } = getSettings();
+    if (!CALENDAR_ID) {
+      throw new Error('CALENDAR_ID not set in Settings sheet');
+    }
+
+    const cal = CalendarApp.getCalendarById(CALENDAR_ID);
+    if (!cal) {
+      throw new Error('Cannot access calendar: ' + CALENDAR_ID);
+    }
+
+    // Get events from the last 6 months and next 6 months
+    const today = new Date();
+    const sixMonthsAgo = new Date(today);
+    sixMonthsAgo.setMonth(today.getMonth() - 6);
+    const sixMonthsAhead = new Date(today);
+    sixMonthsAhead.setMonth(today.getMonth() + 6);
+
+    const events = cal.getEvents(sixMonthsAgo, sixMonthsAhead);
+
+    let imported = 0;
+    let skipped = 0;
+
+    events.forEach(ev => {
+      const title = ev.getTitle();
+      const loc = (ev.getLocation() || '').trim();
+
+      // Skip events without locations
+      if (!loc) {
+        skipped++;
+        return;
+      }
+
+      // Skip non-events
+      const titleLower = title.toLowerCase();
+      const excludePatterns = ['needs off', 'unavailable', 'out of office', 'pto', 'vacation'];
+      if (excludePatterns.some(pattern => titleLower.includes(pattern))) {
+        skipped++;
+        return;
+      }
+
+      // Check if venue already exists
+      const existingVenue = lookupVenue(title);
+      if (existingVenue) {
+        skipped++;
+        return;
+      }
+
+      // Parse location and save
+      const { city, state } = parseCityState(loc);
+      try {
+        saveVenue(title, loc, city, state, 'Bulk imported from calendar history');
+        imported++;
+      } catch (e) {
+        Logger.log(`Failed to import venue "${title}": ${e.message}`);
+      }
+    });
+
+    ui.alert(
+      '✅ Bulk Import Complete!',
+      `Imported: ${imported} new venues\n` +
+      `Skipped: ${skipped} (already exist or no location)\n\n` +
+      `Check the Venues sheet to see all imported locations.\n\n` +
+      `From now on, new venues will be auto-saved when you fetch events.`,
+      ui.ButtonSet.OK
+    );
+
+  } catch (e) {
+    ui.alert('❌ Import Failed', e.message, ui.ButtonSet.OK);
+  }
+}
+
 /* ---------- AUTOMATED TESTING SCRIPT ---------- */
 
 function runAutomatedTests() {
@@ -728,7 +1047,67 @@ function runAutomatedTests() {
   report += '───────────────────────────────────────\n';
 
   Logger.log(report);
+
+  // Show results in UI dialog
+  try {
+    const ui = SpreadsheetApp.getUi();
+    if (results.failed === 0) {
+      ui.alert('✅ All Tests Passed!', report, ui.ButtonSet.OK);
+    } else {
+      ui.alert('⚠️ Some Tests Failed', report, ui.ButtonSet.OK);
+    }
+  } catch (e) {
+    // If UI not available, just log
+    Logger.log('Could not display UI: ' + e.message);
+  }
+
   return {results, report};
+}
+
+/* ---------- UTILITY: Fix Phone Numbers ---------- */
+function fixEmployeePhoneNumbers() {
+  const ui = SpreadsheetApp.getUi();
+  const response = ui.alert(
+    '⚠️ Fix Employee Phone Numbers',
+    'This will add +1 prefix to all employee phone numbers.\n\n' +
+    'Example: 17578167781 → +17578167781\n\n' +
+    'Continue?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (response !== ui.Button.YES) {
+    return;
+  }
+
+  try {
+    const sh = getSheet(DB_SHEET.EMPLOYEES);
+    if (!sh) throw new Error('Employees sheet not found');
+
+    const lastRow = sh.getLastRow();
+    if (lastRow < 2) throw new Error('No employees found');
+
+    let fixed = 0;
+    const rows = sh.getRange(2, 1, lastRow - 1, 4).getValues();
+
+    rows.forEach((row, idx) => {
+      const phone = String(row[1]).trim().replace(/^'+/, '').replace(/\s+/g, '');
+
+      // If phone doesn't start with +1 but is 11 digits starting with 1, add +
+      if (phone.match(/^1\d{10}$/) && !phone.startsWith('+')) {
+        const newPhone = '+' + phone;
+        sh.getRange(idx + 2, 2).setValue(newPhone);
+        fixed++;
+      }
+    });
+
+    ui.alert('✅ Phone Numbers Fixed!',
+      `Updated ${fixed} phone number(s).\n\n` +
+      'All employee phone numbers now in +1XXXXXXXXXX format.',
+      ui.ButtonSet.OK);
+
+  } catch (e) {
+    ui.alert('❌ Fix Failed', e.message, ui.ButtonSet.OK);
+  }
 }
 
 /* =========================
@@ -749,6 +1128,9 @@ function onOpen() {
     .addSeparator()
     .addItem('🚀 RUN ALL TESTS', 'runAutomatedTests')
     .addSeparator()
+    .addItem('🔧 Fix Employee Phone Numbers', 'fixEmployeePhoneNumbers')
+    .addItem('📍 Bulk Import Historical Venues (RUN ONCE)', 'bulkImportHistoricalVenues')
+    .addItem('🧹 Remove Duplicate Venues', 'removeDuplicateVenues')
     .addItem('📱 Send TEST Message (YOUR # ONLY)', 'test_send_to_me')
     .addToUi();
 }

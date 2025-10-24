@@ -91,11 +91,13 @@ In the "Assignments" sheet:
 
 **From Terminal/Finder:**
 
+Option 1: Open in default editor
 ```bash
-# Option 1: Open in default editor
 open "/Users/animatedastronaut/VAULTS/CupSup Scheduler/src/Code.gs"
+```
 
-# Option 2: Print to terminal (then copy)
+Option 2: Print to terminal (then copy)
+```bash
 cat "/Users/animatedastronaut/VAULTS/CupSup Scheduler/src/Code.gs"
 ```
 
@@ -120,11 +122,13 @@ cat "/Users/animatedastronaut/VAULTS/CupSup Scheduler/src/Code.gs"
 
 **Copy ui.html content:**
 
+Open in editor
 ```bash
-# Open in editor
 open "/Users/animatedastronaut/VAULTS/CupSup Scheduler/src/ui.html"
+```
 
-# Or print to terminal
+Or print to terminal
+```bash
 cat "/Users/animatedastronaut/VAULTS/CupSup Scheduler/src/ui.html"
 ```
 
@@ -267,18 +271,28 @@ ui.html:
 ```
 
 ### Open Files in Terminal
+
+Navigate to project
 ```bash
-# Navigate to project
 cd "/Users/animatedastronaut/VAULTS/CupSup Scheduler"
+```
 
-# Open Code.gs
+Open Code.gs
+```bash
 open src/Code.gs
+```
 
-# Open ui.html
+Open ui.html
+```bash
 open src/ui.html
+```
 
-# Or use cat to print to terminal
+Or use cat to print to terminal
+```bash
 cat src/Code.gs
+```
+
+```bash
 cat src/ui.html
 ```
 

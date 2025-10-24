@@ -251,20 +251,25 @@ Create three sheets with these EXACT names:
 
 ### Prerequisites
 
+Install clasp globally
 ```bash
-# Install clasp globally
 npm install -g @google/clasp
+```
 
-# Login to Google
+Login to Google
+```bash
 clasp login
 ```
 
 ### Step 1: Clone This Project
 
+Navigate to project directory
 ```bash
 cd "/Users/animatedastronaut/VAULTS/CupSup Scheduler"
+```
 
-# Create new Apps Script project
+Create new Apps Script project
+```bash
 clasp create --type sheets --title "CupsUp Scheduler"
 ```
 
@@ -285,11 +290,13 @@ The file should look like:
 
 ### Step 3: Push Code
 
+Push Code.gs and ui.html to Apps Script
 ```bash
-# Push Code.gs and ui.html to Apps Script
 clasp push
+```
 
-# Open the script in browser
+Open the script in browser
+```bash
 clasp open
 ```
 
@@ -412,36 +419,32 @@ DEPLOY_TO_SHEETS.md       ← You are here!
 ## 🎯 Quick Reference Commands
 
 ### Get Calendar ID
-```
 1. Open Google Calendar
 2. Click your calendar → Settings
 3. Scroll to "Integrate calendar"
 4. Copy "Calendar ID"
-```
 
 ### Get Twilio Credentials
-```
 1. Go to: https://www.twilio.com/console
 2. Account SID: Shown on dashboard
 3. Auth Token: Click "Show" to reveal
 4. Phone Number: Go to Phone Numbers → Active Numbers
-```
 
 ### Open Apps Script Editor
-```
 In Google Sheet:
+```
 Extensions → Apps Script
 ```
 
 ### View Execution Logs
-```
 In Apps Script editor:
+```
 View → Logs (Ctrl+Enter)
 ```
 
 ### View Script Properties
-```
 In Apps Script editor:
+```
 ⚙️ Project Settings → Script Properties
 ```
 
