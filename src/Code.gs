@@ -14,7 +14,7 @@ function doGet(e) {
   const template = HtmlService.createTemplateFromFile('ui');
   return template.evaluate()
     .setTitle('CupsUp Scheduler')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
@@ -44,10 +44,6 @@ function getSettings() {
   rows.forEach(([k, v]) => {
     if (k) obj[String(k).trim()] = String(v || '').trim();
   });
-
-  const props = PropertiesService.getScriptProperties();
-  obj.TWILIO_SID  = props.getProperty('TWILIO_SID') || '';
-  obj.TWILIO_AUTH = props.getProperty('TWILIO_AUTH') || '';
 
   if (!obj.TIMEZONE) obj.TIMEZONE = Session.getScriptTimeZone() || 'America/New_York';
   return obj;
@@ -128,12 +124,23 @@ function fetchWeekEvents(weekStartIso) {
         // Generate map link if location exists
         const mapLink = loc ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}` : '';
 
+        // Check if it's a multi-day event
+        const startDate = new Date(ev.getStartTime());
+        const endDate = new Date(ev.getEndTime());
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(0, 0, 0, 0);
+        const daysDiff = Math.round((endDate - startDate) / (1000 * 60 * 60 * 24));
+        const isMultiDay = daysDiff > 0;
+
         return {
           id: ev.getId(),
           title: ev.getTitle(),
           date: isoDate(ev.getStartTime()),
+          endDate: isMultiDay ? isoDate(ev.getEndTime()) : null,
           start: isoTime(ev.getStartTime()),
           end: isoTime(ev.getEndTime()),
+          isMultiDay: isMultiDay,
+          dayCount: daysDiff + 1,
           city,
           state,
           locationRaw: loc,
@@ -388,10 +395,16 @@ function saveAssignment(weekStartIso, eventId, eventData, assignments) {
 
   // Remove old assignment for this event
   if (last >= 2) {
-    const all = sh.getRange(2, 1, last - 1, 10).getValues();
-    const keep = all.filter(r => !(r[0] === weekStartIso && r[1] === eventId));
-    sh.getRange(2, 1, last - 1, 10).clearContent();
-    if (keep.length) sh.getRange(2, 1, keep.length, 10).setValues(keep);
+    const all = sh.getRange(2, 1, last - 1, 12).getValues();
+    const keep = all.filter(r => {
+      // Convert Date objects to strings for comparison
+      const rowWeekStart = r[0] instanceof Date
+        ? Utilities.formatDate(r[0], getSettings().TIMEZONE, 'yyyy-MM-dd')
+        : String(r[0]);
+      return !(rowWeekStart === weekStartIso && r[1] === eventId);
+    });
+    sh.getRange(2, 1, last - 1, 12).clearContent();
+    if (keep.length) sh.getRange(2, 1, keep.length, 12).setValues(keep);
   }
 
   // Save new assignment
@@ -407,72 +420,18 @@ function saveAssignment(weekStartIso, eventId, eventData, assignments) {
       eventData.city || '',
       eventData.state || '',
       assignedStr,
-      '' // SMSStatus - will be updated when group chat sent
+      '', // SMSStatus - will be updated when group chat sent
+      eventData.fullAddress || eventData.locationRaw || '', // Add full address
+      eventData.notes || '' // Event notes
     ];
-    sh.getRange(sh.getLastRow() + 1, 1, 1, 10).setValues([row]);
+    sh.getRange(sh.getLastRow() + 1, 1, 1, 12).setValues([row]);
   }
 
   return {success: true};
 }
 
-/* ---------- Group Chat Message via Twilio ---------- */
-function sendGroupChatSchedule(weekStartIso) {
-  const settings = getSettings();
-  const sid = settings.TWILIO_SID;
-  const auth = settings.TWILIO_AUTH;
-  const from = settings.TWILIO_FROM;
-  const groupNumbers = settings.GROUP_CHAT_NUMBERS;
-
-  // Validate Twilio configuration
-  if (!sid || !auth) {
-    throw new Error('Twilio credentials not configured. Add TWILIO_SID and TWILIO_AUTH to Script Properties (not the Settings sheet).');
-  }
-
-  if (!from) {
-    throw new Error('TWILIO_FROM not set in Settings sheet. Add your Twilio phone number.');
-  }
-
-  if (!from.match(/^\+1\d{10}$/)) {
-    throw new Error(`Invalid TWILIO_FROM format: ${from}. Must be +1XXXXXXXXXX`);
-  }
-
-  if (!groupNumbers) {
-    throw new Error('GROUP_CHAT_NUMBERS not set in Settings sheet. Add comma-separated phone numbers.');
-  }
-
-  // Validate and parse phone numbers
-  const numbers = groupNumbers
-    .split(',')
-    .map(n => n.trim().replace(/^'+/, '').replace(/\s+/g, ''))
-    .filter(Boolean);
-
-  const invalidNumbers = numbers.filter(n => !n.match(/^\+1\d{10}$/));
-  if (invalidNumbers.length > 0) {
-    throw new Error(`Invalid phone number format: ${invalidNumbers.join(', ')}. All numbers must be +1XXXXXXXXXX`);
-  }
-
-  if (numbers.length === 0) {
-    throw new Error('No valid phone numbers found in GROUP_CHAT_NUMBERS.');
-  }
-
-  // ENHANCEMENT 1: Check daily send limit (10 per day)
-  const props = PropertiesService.getScriptProperties();
-  const today = new Date().toISOString().slice(0, 10);
-  const dailySends = parseInt(props.getProperty('SENDS_' + today) || '0');
-
-  if (dailySends >= 10) {
-    const now = new Date();
-    const midnight = new Date(now);
-    midnight.setHours(24, 0, 0, 0);
-    const hoursUntilReset = Math.ceil((midnight - now) / (1000 * 60 * 60));
-    throw new Error(`Daily send limit reached (10/day). Limit resets in ${hoursUntilReset} hours at midnight.`);
-  }
-
-  // ENHANCEMENT 2: Validate recipient count (max 50)
-  const MAX_RECIPIENTS = 50;
-  if (numbers.length > MAX_RECIPIENTS) {
-    throw new Error(`Too many recipients (${numbers.length}). Maximum ${MAX_RECIPIENTS} allowed per send.`);
-  }
+/* ---------- Schedule Message Generation ---------- */
+function getScheduleMessage(weekStartIso) {
 
   // Get all assignments for the week
   const sh = getSheet(DB_SHEET.ASSIGN);
@@ -481,189 +440,147 @@ function sendGroupChatSchedule(weekStartIso) {
     throw new Error('No assignments found for this week. Please assign staff to events before sending group chat.');
   }
 
-  const rows = sh.getRange(2, 1, last - 1, 10).getValues()
-    .filter(r => r[0] === weekStartIso);
+  // Convert Date objects to ISO strings for comparison
+  const rows = sh.getRange(2, 1, last - 1, 12).getValues()
+    .filter(r => {
+      const weekStartValue = r[0];
+      // Handle both Date objects and strings
+      const weekStartStr = weekStartValue instanceof Date
+        ? Utilities.formatDate(weekStartValue, getSettings().TIMEZONE, 'yyyy-MM-dd')
+        : String(weekStartValue);
+      return weekStartStr === weekStartIso;
+    });
 
   if (rows.length === 0) {
     throw new Error('No assignments found for this week. Please assign staff to events before sending group chat.');
   }
 
-  // Build schedule message
+  // Helper to convert 24-hour time to 12-hour format
+  const format12Hour = (time24) => {
+    if (!time24 || !time24.match(/^\d{2}:\d{2}$/)) return time24;
+    const [hours, minutes] = time24.split(':').map(Number);
+    if (hours === 0) return `12:${minutes.toString().padStart(2, '0')}am`;
+    if (hours < 12) return `${hours}:${minutes.toString().padStart(2, '0')}am`;
+    if (hours === 12) return `12:${minutes.toString().padStart(2, '0')}pm`;
+    return `${hours - 12}:${minutes.toString().padStart(2, '0')}pm`;
+  };
+
+  // Build schedule message with date range
   const weekStart = new Date(weekStartIso + 'T00:00:00');
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekEnd.getDate() + 6);
 
-  const formatDate = (d) => {
+  // Format date range for title
+  const formatDateShort = (d) => {
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     return `${months[d.getMonth()]} ${d.getDate()}`;
   };
 
-  let message = `☕ CUPSUP SCHEDULE - ${formatDate(weekStart)} to ${formatDate(weekEnd)}\n\n`;
+  // Show compact date range (e.g., "Nov 5-10" if same month, "Oct 30-Nov 5" if different months)
+  const startStr = formatDateShort(weekStart);
+  const endDay = weekEnd.getDate();
+  const dateRange = weekStart.getMonth() === weekEnd.getMonth()
+    ? `${startStr}-${endDay}`
+    : `${startStr}-${formatDateShort(weekEnd)}`;
+
+  let message = `CUPSUP SCHEDULE: ${dateRange}\n\n`;
 
   // Group by date
   const byDate = {};
   rows.forEach(row => {
-    const [weekStart, eventId, title, dateISO, start, end, city, state, assignedData] = row;
+    const [weekStart, eventId, title, dateValue, startValue, endValue, city, state, assignedData, smsStatus, fullAddress, notes] = row;
+    // Convert Date object to ISO string for consistent grouping
+    const dateISO = dateValue instanceof Date
+      ? Utilities.formatDate(dateValue, getSettings().TIMEZONE, 'yyyy-MM-dd')
+      : String(dateValue);
+    // Convert time values to HH:MM format if they're Date objects
+    const start = startValue instanceof Date
+      ? Utilities.formatDate(startValue, getSettings().TIMEZONE, 'HH:mm')
+      : String(startValue);
+    const end = endValue instanceof Date
+      ? Utilities.formatDate(endValue, getSettings().TIMEZONE, 'HH:mm')
+      : String(endValue);
     if (!byDate[dateISO]) byDate[dateISO] = [];
-    byDate[dateISO].push({title, start, end, city, state, assigned: assignedData});
+    byDate[dateISO].push({title, start, end, city, state, assigned: assignedData, fullAddress: fullAddress || '', locationRaw: fullAddress || '', notes: notes || ''});
   });
 
   // Format message
   const dates = Object.keys(byDate).sort();
   dates.forEach(dateISO => {
     const d = new Date(dateISO + 'T00:00:00');
-    const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-    message += `📅 ${days[d.getDay()]} ${formatDate(d)}\n`;
+    const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
-    byDate[dateISO].forEach(event => {
-      const location = [event.city, event.state].filter(Boolean).join(', ') || 'TBD';
-      message += `  ${event.start}-${event.end} ${event.title}\n`;
-      message += `  📍 ${location}\n`;
+    // Group events for same day
+    const dayEvents = byDate[dateISO];
 
-      if (event.assigned) {
-        // Parse and format staff
-        const staff = event.assigned.split(',').map(s => {
-          const match = s.trim().match(/^(.+):(\d{2}:\d{2})-(\d{2}:\d{2})$/);
-          return match ? `${match[1]} (${match[2]}-${match[3]})` : s.trim();
-        }).join(', ');
-        message += `  👥 ${staff}\n`;
+    message += `${days[d.getDay()]}\n`;
+
+    // Show each event
+    dayEvents.forEach(event => {
+      // For multi-day events, don't show event times (they're usually 00:00-00:00)
+      // Instead, show individual staff times
+      const isAllDay = event.start === '00:00' && event.end === '00:00';
+
+      if (isAllDay) {
+        // Just show title for multi-day/all-day events
+        message += `${event.title}\n`;
+      } else {
+        // Show title with time range for single-day events
+        const startTime = format12Hour(event.start);
+        const endTime = format12Hour(event.end);
+        message += `${event.title} ${startTime}-${endTime}\n`;
       }
+
+      // Build location text - prefer city/state for cleaner display
+      let locationText = '';
+      if (event.city || event.state) {
+        locationText = [event.city, event.state].filter(Boolean).join(', ');
+      } else if (event.fullAddress) {
+        locationText = event.fullAddress;
+      } else if (event.locationRaw) {
+        locationText = event.locationRaw;
+      }
+
+      // Add location with pin emoji on separate line
+      if (locationText) {
+        message += `📍 ${locationText}\n`;
+        // Add clickable Google Maps URL
+        const mapUrl = `https://maps.google.com/?q=${encodeURIComponent(locationText)}`;
+        message += `${mapUrl}\n`;
+      }
+
+      // Add notes if they exist
+      if (event.notes && event.notes.trim()) {
+        message += `📝 ${event.notes.trim()}\n`;
+      }
+
+      // List staff members (times are same as event, no need to repeat)
+      if (event.assigned) {
+        // Parse staff names: "Name:HH:MM-HH:MM"
+        const staffNames = event.assigned.split(',').map(s => {
+          const match = s.trim().match(/^(.+):(\d{2}:\d{2})-(\d{2}:\d{2})$/);
+          if (match) {
+            return match[1]; // Just the name
+          }
+          return s.trim();
+        });
+        staffNames.forEach(name => {
+          message += `${name}\n`;
+        });
+      }
+
       message += `\n`;
     });
   });
 
-  message += `Reply STOP to unsubscribe`;
-
-  // ENHANCEMENT 3: Validate message size (max 1600 characters = 10 SMS segments)
-  const MAX_MESSAGE_LENGTH = 1600;
-  if (message.length > MAX_MESSAGE_LENGTH) {
-    throw new Error(`Message too large (${message.length} characters). Maximum ${MAX_MESSAGE_LENGTH} characters allowed (10 SMS segments). Please reduce the schedule size.`);
-  }
-
-  // ENHANCEMENT 4: Calculate SMS segments and estimated cost
-  const SMS_SEGMENT_SIZE = 160;
-  const COST_PER_MESSAGE = 0.0079; // Twilio US pricing
-  const segments = Math.ceil(message.length / SMS_SEGMENT_SIZE);
-  const totalMessages = numbers.length * segments;
-  const estimatedCost = (totalMessages * COST_PER_MESSAGE).toFixed(2);
-
-  // Log message size info
-  Logger.log(`Message size: ${message.length} characters, ${segments} SMS segment(s)`);
-  Logger.log(`Recipients: ${numbers.length}, Total messages: ${totalMessages}, Estimated cost: $${estimatedCost}`);
-
-  // ENHANCEMENT 5: Warning for multi-segment messages
-  if (segments > 1) {
-    Logger.log(`WARNING: Message will be split into ${segments} SMS segments. Each recipient will receive ${segments} messages.`);
-  }
-
-  // ENHANCEMENT 6: Warning for large sends (>20 recipients)
-  if (numbers.length > 20) {
-    Logger.log(`LARGE SEND WARNING: ${numbers.length} recipients, ~$${estimatedCost} estimated cost`);
-  }
-
-  // Rate limiting check (prevent spam) - 60 second cooldown
-  const lastSend = props.getProperty('LAST_GROUP_CHAT_SEND');
-  if (lastSend) {
-    const timeSince = Date.now() - parseInt(lastSend);
-    if (timeSince < 60000) { // 1 minute cooldown
-      throw new Error(`Rate limit: Please wait ${Math.ceil((60000 - timeSince) / 1000)} seconds before sending another group chat.`);
-    }
-  }
-
-  // Send to all group chat numbers
-  let sent = 0;
-  const errors = [];
-
-  numbers.forEach(toNumber => {
-    try {
-      twilioSend(sid, auth, from, toNumber, message);
-      sent++;
-    } catch (e) {
-      Logger.log('Failed to send to ' + toNumber + ': ' + e.message);
-      errors.push(`${toNumber}: ${e.message}`);
-    }
-  });
-
-  // Update rate limit timestamp
-  props.setProperty('LAST_GROUP_CHAT_SEND', Date.now().toString());
-
-  // ENHANCEMENT 7: Update daily counter after successful send
-  props.setProperty('SENDS_' + today, (dailySends + 1).toString());
-
-  // Mark all as sent (or log errors)
-  const timestamp = new Date().toISOString();
-  const statusText = errors.length > 0
-    ? `Group chat sent ${timestamp} (${errors.length} failed)`
-    : `Group chat sent ${timestamp}`;
-
-  rows.forEach((row, idx) => {
-    const allRows = sh.getRange(2, 1, last - 1, 1).getValues();
-    const rowIndex = allRows.findIndex(x => x[0] === weekStartIso) + 2;
-    if (rowIndex >= 2) {
-      sh.getRange(rowIndex + idx, 10).setValue(statusText);
-    }
-  });
-
-  if (errors.length > 0) {
-    Logger.log('Group chat errors: ' + JSON.stringify(errors));
-  }
-
   return {
-    count: sent,
-    numbers: numbers.length,
-    segments: segments,
-    messageLength: message.length,
-    totalMessages: totalMessages,
-    estimatedCost: estimatedCost,
-    dailySendsRemaining: 9 - dailySends,
-    preview: message.substring(0, 200) + '...',
-    errors: errors.length > 0 ? errors : undefined
+    success: true,
+    message: message,
+    eventCount: dates.length,
+    characterCount: message.length
   };
 }
 
-function twilioSend(sid, auth, from, to, body) {
-  const url = `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`;
-  const payload = {
-    To: to,
-    From: from,
-    Body: body
-  };
-  const options = {
-    method: 'post',
-    payload: payload,
-    muteHttpExceptions: true,
-    headers: {
-      Authorization: 'Basic ' + Utilities.base64Encode(sid + ':' + auth)
-    }
-  };
-
-  const res = UrlFetchApp.fetch(url, options);
-  const code = res.getResponseCode();
-
-  if (code >= 300) {
-    const errorBody = res.getContentText();
-    let errorMsg = `Twilio API error ${code}`;
-
-    // Parse Twilio error for better messages
-    try {
-      const errorData = JSON.parse(errorBody);
-      if (errorData.message) {
-        errorMsg += `: ${errorData.message}`;
-      }
-      if (errorData.code === 21211) {
-        errorMsg += ' - Invalid "From" phone number. Check TWILIO_FROM in Settings.';
-      } else if (errorData.code === 21614) {
-        errorMsg += ' - Invalid "To" phone number format.';
-      } else if (errorData.code === 20003) {
-        errorMsg += ' - Authentication failed. Check TWILIO_SID and TWILIO_AUTH in Script Properties.';
-      }
-    } catch (e) {
-      errorMsg += `: ${errorBody}`;
-    }
-
-    throw new Error(errorMsg);
-  }
-}
 
 /* ---------- API Methods ---------- */
 function api_getBootstrap() {
@@ -696,11 +613,11 @@ function api_saveAssignment(weekStartIso, eventId, eventData, assignments) {
   }
 }
 
-function api_sendGroupChat(weekStartIso) {
+function api_getScheduleMessage(weekStartIso) {
   try {
-    return sendGroupChatSchedule(weekStartIso);
+    return getScheduleMessage(weekStartIso);
   } catch (e) {
-    throw new Error(`Failed to send group chat: ${e.message}`);
+    throw new Error(`Failed to generate schedule: ${e.message}`);
   }
 }
 
@@ -1121,17 +1038,15 @@ function onOpen() {
     .addItem('1️⃣ Test Settings Load', 'test_settings')
     .addItem('2️⃣ Test Employee Load', 'test_employees')
     .addItem('3️⃣ Test Calendar Access', 'test_calendar')
-    .addItem('4️⃣ Test Twilio Credentials', 'test_twilio_creds')
     .addSeparator()
-    .addItem('5️⃣ Test Fetch This Week', 'test_fetch_week')
-    .addItem('6️⃣ Test Group Chat Numbers', 'test_group_numbers')
+    .addItem('4️⃣ Test Fetch This Week', 'test_fetch_week')
+    .addItem('5️⃣ Debug Assignments (DATE MISMATCH)', 'test_assignments_debug')
     .addSeparator()
     .addItem('🚀 RUN ALL TESTS', 'runAutomatedTests')
     .addSeparator()
     .addItem('🔧 Fix Employee Phone Numbers', 'fixEmployeePhoneNumbers')
     .addItem('📍 Bulk Import Historical Venues (RUN ONCE)', 'bulkImportHistoricalVenues')
     .addItem('🧹 Remove Duplicate Venues', 'removeDuplicateVenues')
-    .addItem('📱 Send TEST Message (YOUR # ONLY)', 'test_send_to_me')
     .addToUi();
 }
 
@@ -1225,64 +1140,6 @@ function test_calendar() {
   }
 }
 
-function test_twilio_creds() {
-  try {
-    const settings = getSettings();
-    const ui = SpreadsheetApp.getUi();
-
-    let report = 'TWILIO CREDENTIALS CHECK\n\n';
-
-    if (!settings.TWILIO_SID) {
-      report += '❌ TWILIO_SID not found in Script Properties\n';
-    } else if (settings.TWILIO_SID.length < 30) {
-      report += '⚠️  TWILIO_SID seems too short\n';
-      report += `   Length: ${settings.TWILIO_SID.length} characters\n`;
-    } else {
-      report += '✅ TWILIO_SID found\n';
-      report += `   Format: ${settings.TWILIO_SID.substring(0, 10)}...\n`;
-    }
-
-    if (!settings.TWILIO_AUTH) {
-      report += '❌ TWILIO_AUTH not found in Script Properties\n';
-    } else if (settings.TWILIO_AUTH.length < 30) {
-      report += '⚠️  TWILIO_AUTH seems too short\n';
-      report += `   Length: ${settings.TWILIO_AUTH.length} characters\n`;
-    } else {
-      report += '✅ TWILIO_AUTH found\n';
-      report += `   Format: ${settings.TWILIO_AUTH.substring(0, 10)}...\n`;
-    }
-
-    if (!settings.TWILIO_FROM) {
-      report += '❌ TWILIO_FROM not in Settings sheet\n';
-    } else if (!settings.TWILIO_FROM.match(/^\+1\d{10}$/)) {
-      report += '⚠️  TWILIO_FROM format invalid\n';
-      report += `   Value: ${settings.TWILIO_FROM}\n`;
-      report += '   Should be: +1XXXXXXXXXX\n';
-    } else {
-      report += '✅ TWILIO_FROM configured\n';
-      report += `   Number: ${settings.TWILIO_FROM}\n`;
-    }
-
-    report += '\n';
-
-    const allGood = settings.TWILIO_SID &&
-                    settings.TWILIO_AUTH &&
-                    settings.TWILIO_FROM &&
-                    settings.TWILIO_SID.length >= 30 &&
-                    settings.TWILIO_AUTH.length >= 30 &&
-                    settings.TWILIO_FROM.match(/^\+1\d{10}$/);
-
-    if (allGood) {
-      report += '✅ Twilio is fully configured!\n\nReady to send messages.';
-      ui.alert('✅ Twilio Test Passed', report, ui.ButtonSet.OK);
-    } else {
-      report += '⚠️  Twilio not fully configured\n\nFix the issues above before sending messages.';
-      ui.alert('⚠️  Twilio Configuration Incomplete', report, ui.ButtonSet.OK);
-    }
-  } catch (e) {
-    SpreadsheetApp.getUi().alert('❌ Twilio Test Failed', e.message, SpreadsheetApp.getUi().ButtonSet.OK);
-  }
-}
 
 function test_fetch_week() {
   try {
@@ -1325,101 +1182,81 @@ function test_fetch_week() {
   }
 }
 
-function test_group_numbers() {
-  try {
-    const settings = getSettings();
-    const ui = SpreadsheetApp.getUi();
 
-    if (!settings.GROUP_CHAT_NUMBERS) {
-      ui.alert('❌ Group Numbers Test Failed',
-        'GROUP_CHAT_NUMBERS not set in Settings sheet',
-        ui.ButtonSet.OK);
-      return;
-    }
-
-    const numbers = settings.GROUP_CHAT_NUMBERS.split(',').map(n => n.trim().replace(/^'+/, '')).filter(Boolean);
-
-    let report = `✅ PARSED ${numbers.length} PHONE NUMBERS\n\n`;
-
-    numbers.forEach((num, idx) => {
-      const valid = num.match(/^\+1\d{10}$/);
-      const icon = valid ? '✅' : '❌';
-      report += `${icon} ${idx + 1}. ${num}\n`;
-    });
-
-    const invalidCount = numbers.filter(n => !n.match(/^\+1\d{10}$/)).length;
-
-    report += '\n';
-
-    if (invalidCount > 0) {
-      report += `⚠️  ${invalidCount} invalid number(s)\n`;
-      report += 'Fix format to: +1XXXXXXXXXX';
-      ui.alert('⚠️  Group Numbers Have Issues', report, ui.ButtonSet.OK);
-    } else {
-      report += `✅ All ${numbers.length} numbers are valid!`;
-      ui.alert('✅ Group Numbers Test Passed', report, ui.ButtonSet.OK);
-    }
-  } catch (e) {
-    SpreadsheetApp.getUi().alert('❌ Group Numbers Test Failed', e.message, SpreadsheetApp.getUi().ButtonSet.OK);
-  }
-}
-
-function test_send_to_me() {
+function test_assignments_debug() {
   const ui = SpreadsheetApp.getUi();
 
-  // Warning dialog
-  const response = ui.alert(
-    '⚠️  SEND TEST MESSAGE',
-    'This will send a test SMS.\n\n' +
-    'Make sure GROUP_CHAT_NUMBERS in Settings\n' +
-    'is set to YOUR PHONE NUMBER ONLY!\n\n' +
-    'Continue?',
-    ui.ButtonSet.YES_NO
-  );
-
-  if (response !== ui.Button.YES) {
-    return;
-  }
-
   try {
-    const settings = getSettings();
-    const sid = settings.TWILIO_SID;
-    const auth = settings.TWILIO_AUTH;
-    const from = settings.TWILIO_FROM;
-    const numbers = settings.GROUP_CHAT_NUMBERS.split(',').map(n => n.trim().replace(/^'+/, '')).filter(Boolean);
+    const sh = getSheet(DB_SHEET.ASSIGN);
+    const lastRow = sh.getLastRow();
 
-    if (!sid || !auth || !from) {
-      ui.alert('❌ Cannot Send', 'Twilio credentials not configured', ui.ButtonSet.OK);
-      return;
-    }
-
-    if (numbers.length > 1) {
-      ui.alert('⚠️  WARNING',
-        `You have ${numbers.length} numbers in GROUP_CHAT_NUMBERS.\n\n` +
-        'This will send to ALL of them.\n\n' +
-        'For testing, set GROUP_CHAT_NUMBERS to ONLY YOUR number first!',
+    if (lastRow < 2) {
+      ui.alert('📊 Assignment Debug',
+        '❌ Assignments sheet is EMPTY!\n\n' +
+        'You need to:\n' +
+        '1. Open the web app\n' +
+        '2. Select a week\n' +
+        '3. Click "Fetch Week"\n' +
+        '4. Assign staff to events\n' +
+        '5. Click "Save" for each event',
         ui.ButtonSet.OK);
       return;
     }
 
-    const testMessage = `🧪 CupsUp Scheduler Test\n\n` +
-                       `Sent: ${new Date().toLocaleString()}\n` +
-                       `From: ${from}\n\n` +
-                       `✅ Your system is working!\n\n` +
-                       `Reply STOP to unsubscribe`;
+    // Get all WeekStart dates (column 1) and convert to ISO strings
+    const weekStartDates = sh.getRange(2, 1, lastRow - 1, 1).getValues()
+      .map(r => {
+        const val = r[0];
+        if (!val) return null;
+        return val instanceof Date
+          ? Utilities.formatDate(val, getSettings().TIMEZONE, 'yyyy-MM-dd')
+          : String(val);
+      })
+      .filter(Boolean);
 
-    twilioSend(sid, auth, from, numbers[0], testMessage);
+    // Get unique dates
+    const uniqueDates = [...new Set(weekStartDates)];
 
-    ui.alert('✅ Test Message Sent!',
-      `Message sent to: ${numbers[0]}\n\n` +
-      'Check your phone within 60 seconds.\n\n' +
-      'If you receive it, Twilio is working!',
-      ui.ButtonSet.OK);
+    // Get today's Monday (what UI would use)
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const daysToMonday = (dayOfWeek === 0 ? -6 : 1 - dayOfWeek);
+    const thisMonday = new Date(today);
+    thisMonday.setDate(today.getDate() + daysToMonday);
+    thisMonday.setHours(0, 0, 0, 0);
+    const thisMondayIso = Utilities.formatDate(thisMonday, getSettings().TIMEZONE, 'yyyy-MM-dd');
+
+    let report = '📊 ASSIGNMENT DATE DEBUG\n\n';
+    report += `Total assignment rows: ${weekStartDates.length}\n`;
+    report += `Unique weeks with data: ${uniqueDates.length}\n\n`;
+
+    report += '📅 WEEKS IN YOUR ASSIGNMENTS SHEET:\n';
+    uniqueDates.forEach(date => {
+      const count = weekStartDates.filter(d => d === date).length;
+      const isThisWeek = date === thisMondayIso ? ' ← THIS WEEK' : '';
+      report += `  ${date} (${count} assignments)${isThisWeek}\n`;
+    });
+
+    report += `\n🎯 CURRENT WEEK START: ${thisMondayIso}\n`;
+
+    const hasThisWeek = uniqueDates.includes(thisMondayIso);
+
+    if (hasThisWeek) {
+      report += '\n✅ THIS WEEK HAS ASSIGNMENTS!\n';
+      report += 'Group chat should work for this week.';
+    } else {
+      report += '\n❌ THIS WEEK HAS NO ASSIGNMENTS!\n\n';
+      report += 'To send group chat, you need to:\n';
+      report += '1. Open the web app\n';
+      report += `2. Select week starting ${thisMondayIso}\n`;
+      report += '3. Fetch events and assign staff\n';
+      report += '4. Save assignments\n';
+      report += '5. Then try sending group chat';
+    }
+
+    ui.alert('📊 Assignment Debug Report', report, ui.ButtonSet.OK);
 
   } catch (e) {
-    ui.alert('❌ Send Test Failed',
-      `Error: ${e.message}\n\n` +
-      'Check Twilio credentials and account balance.',
-      ui.ButtonSet.OK);
+    ui.alert('❌ Debug Failed', e.message, ui.ButtonSet.OK);
   }
 }
