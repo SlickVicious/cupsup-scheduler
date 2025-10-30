@@ -272,6 +272,78 @@ function saveVenue(venueName, fullAddress, city, state, notes = '') {
 }
 
 /* ---------- Employees ---------- */
+/**
+ * Validates and cleans a phone number
+ * @param {string} phone - Phone number to validate
+ * @param {string} employeeName - Employee name for error messages
+ * @returns {string} - Cleaned phone number in +1XXXXXXXXXX format
+ * @throws {Error} - If phone number is invalid
+ */
+function validateEmployeePhone(phone, employeeName) {
+  // Clean phone number
+  const cleaned = String(phone || '').trim().replace(/^'+/, '').replace(/\s+/g, '').replace(/[^\d+]/g, '');
+
+  // Check if empty
+  if (!cleaned) {
+    throw new Error(
+      `Missing phone number for ${employeeName}.\n` +
+      `Please add a phone number in +1XXXXXXXXXX format.`
+    );
+  }
+
+  // Check format
+  if (!cleaned.match(/^\+1\d{10}$/)) {
+    throw new Error(
+      `Invalid phone format for ${employeeName}: "${phone}"\n\n` +
+      `Expected format: +1XXXXXXXXXX (e.g., +15551234567)\n` +
+      `Your format: ${cleaned}\n\n` +
+      `Common fixes:\n` +
+      `- Add "+1" prefix if missing\n` +
+      `- Remove spaces, dashes, parentheses\n` +
+      `- Must be exactly 11 characters (+1 + 10 digits)`
+    );
+  }
+
+  // Check for known invalid/test numbers
+  const invalidPrefixes = ['5555555', '5550000', '5551234']; // Common test numbers
+  const digits = cleaned.slice(2); // Remove +1
+
+  if (invalidPrefixes.some(prefix => digits.startsWith(prefix))) {
+    Logger.log(`Warning: ${employeeName} has test/invalid number: ${cleaned}`);
+  }
+
+  return cleaned;
+}
+
+/**
+ * Checks for duplicate phone numbers across employees
+ * @param {Array} employees - List of employee objects
+ * @returns {Array} - Array of duplicate issues (empty if none)
+ */
+function checkDuplicatePhones(employees) {
+  const phoneCounts = {};
+  const duplicates = [];
+
+  employees.forEach(emp => {
+    if (phoneCounts[emp.Phone]) {
+      phoneCounts[emp.Phone].push(emp.Name);
+    } else {
+      phoneCounts[emp.Phone] = [emp.Name];
+    }
+  });
+
+  Object.keys(phoneCounts).forEach(phone => {
+    if (phoneCounts[phone].length > 1) {
+      duplicates.push({
+        phone: phone,
+        employees: phoneCounts[phone]
+      });
+    }
+  });
+
+  return duplicates;
+}
+
 function listEmployees() {
   const sh = getSheet(DB_SHEET.EMPLOYEES);
   if (!sh) {
@@ -284,23 +356,46 @@ function listEmployees() {
   }
 
   const rows = sh.getRange(2, 1, lastRow - 1, 4).getValues();
-  const employees = rows.filter(r => r[0]).map(([Name, Phone, Role, Notes]) => {
-    // Clean phone number
-    const cleanPhone = String(Phone).trim().replace(/^'+/, '').replace(/\s+/g, '');
+  const employees = [];
+  const validationErrors = [];
 
-    return {
-      Name: String(Name).trim(),
-      Phone: cleanPhone,
-      Role: String(Role || '').trim(),
-      Notes: String(Notes || '').trim()
-    };
+  // Validate each employee
+  rows.filter(r => r[0]).forEach(([Name, Phone, Role, Notes], idx) => {
+    const employeeName = String(Name).trim();
+
+    try {
+      const validPhone = validateEmployeePhone(Phone, employeeName);
+      employees.push({
+        Name: employeeName,
+        Phone: validPhone,
+        Role: String(Role || '').trim(),
+        Notes: String(Notes || '').trim()
+      });
+    } catch (e) {
+      validationErrors.push(`Row ${idx + 2}: ${e.message}`);
+    }
   });
 
-  // Validate phone numbers
-  const invalidPhones = employees.filter(e => !e.Phone.match(/^\+1\d{10}$/));
-  if (invalidPhones.length > 0) {
-    const names = invalidPhones.map(e => `${e.Name} (${e.Phone})`).join(', ');
-    Logger.log(`Warning: Invalid phone numbers for: ${names}`);
+  // If there are validation errors, throw with all details
+  if (validationErrors.length > 0) {
+    throw new Error(
+      `Phone validation failed for ${validationErrors.length} employee(s):\n\n` +
+      validationErrors.join('\n\n') +
+      `\n\nPlease fix these issues in the Employees sheet before continuing.`
+    );
+  }
+
+  // Check for duplicate phone numbers
+  const duplicates = checkDuplicatePhones(employees);
+  if (duplicates.length > 0) {
+    const dupeMessages = duplicates.map(d =>
+      `${d.phone}: ${d.employees.join(', ')}`
+    ).join('\n');
+
+    throw new Error(
+      `Duplicate phone numbers detected:\n\n${dupeMessages}\n\n` +
+      `Each employee must have a unique phone number.`
+    );
   }
 
   return employees;
@@ -352,44 +447,160 @@ function getAssignments(weekStartIso) {
   return byEvent;
 }
 
+/**
+ * Comprehensive validation for assignment data
+ * @param {string} weekStartIso - Week start date in ISO format
+ * @param {string} eventId - Event ID
+ * @param {Object} eventData - Event metadata
+ * @param {Array} assignments - Array of staff assignments
+ * @throws {Error} - If validation fails
+ */
+function validateAssignmentData(weekStartIso, eventId, eventData, assignments) {
+  // Load employee list for validation
+  const validEmployees = listEmployees().map(e => e.Name);
+
+  // Validate each assignment
+  if (assignments && assignments.length > 0) {
+    // 1. Check maximum assignments per event
+    if (assignments.length > 20) {
+      throw new Error(
+        `Too many staff assignments (${assignments.length}).\n` +
+        `Maximum 20 staff per event. Please reduce assignments.`
+      );
+    }
+
+    const employeeTimeSlots = {}; // Track assignments per employee for overlap detection
+
+    assignments.forEach((a, idx) => {
+      const prefix = `Assignment ${idx + 1}`;
+
+      // 2. Check required fields
+      if (!a.name) {
+        throw new Error(`${prefix}: Employee name is required`);
+      }
+      if (!a.start || !a.end) {
+        throw new Error(`${prefix}: Start and end times are required`);
+      }
+
+      // 3. Employee exists check
+      if (!validEmployees.includes(a.name)) {
+        throw new Error(
+          `${prefix}: Employee "${a.name}" not found in Employees sheet.\n\n` +
+          `Valid employees:\n${validEmployees.slice(0, 10).join('\n')}` +
+          (validEmployees.length > 10 ? `\n... and ${validEmployees.length - 10} more` : '')
+        );
+      }
+
+      // 4. String length limits
+      if (a.name.length > 50) {
+        throw new Error(
+          `${prefix}: Employee name too long (${a.name.length} chars).\n` +
+          `Maximum 50 characters.`
+        );
+      }
+
+      // 5. Time format validation
+      if (!a.start.match(/^\d{2}:\d{2}$/) || !a.end.match(/^\d{2}:\d{2}$/)) {
+        throw new Error(
+          `${prefix}: Invalid time format.\n` +
+          `Expected: HH:MM (e.g., 09:00, 17:30)\n` +
+          `Got: ${a.start} - ${a.end}`
+        );
+      }
+
+      // 6. Time logic validation
+      if (a.start >= a.end) {
+        throw new Error(
+          `${prefix}: Start time (${a.start}) must be before end time (${a.end})`
+        );
+      }
+
+      // 7. Event time boundary validation (with 1-hour buffer for setup/cleanup)
+      const eventStart = eventData.start || '00:00';
+      const eventEnd = eventData.end || '23:59';
+      const bufferMinutes = 60; // 1 hour buffer
+
+      // Parse times to minutes for easier comparison
+      const parseTime = (timeStr) => {
+        const [h, m] = timeStr.split(':').map(Number);
+        return h * 60 + m;
+      };
+
+      const assignStart = parseTime(a.start);
+      const assignEnd = parseTime(a.end);
+      const evStart = parseTime(eventStart);
+      const evEnd = parseTime(eventEnd);
+
+      if (assignStart < evStart - bufferMinutes || assignEnd > evEnd + bufferMinutes) {
+        Logger.log(
+          `Warning ${prefix}: Assignment time (${a.start}-${a.end}) ` +
+          `is outside event hours (${eventStart}-${eventEnd}). ` +
+          `This may be intentional for setup/cleanup.`
+        );
+      }
+
+      // 8. Duplicate/overlap detection within same event
+      if (!employeeTimeSlots[a.name]) {
+        employeeTimeSlots[a.name] = [];
+      }
+
+      // Check for overlaps with existing assignments for this employee
+      employeeTimeSlots[a.name].forEach(existingSlot => {
+        const existingStart = parseTime(existingSlot.start);
+        const existingEnd = parseTime(existingSlot.end);
+
+        // Check if times overlap
+        if (!(assignEnd <= existingStart || assignStart >= existingEnd)) {
+          throw new Error(
+            `${prefix}: ${a.name} is already assigned overlapping time in this event.\n\n` +
+            `New assignment: ${a.start}-${a.end}\n` +
+            `Existing assignment: ${existingSlot.start}-${existingSlot.end}\n\n` +
+            `Please adjust times or remove one assignment.`
+          );
+        }
+      });
+
+      employeeTimeSlots[a.name].push({ start: a.start, end: a.end });
+    });
+  }
+
+  // 9. Event data validation
+  if (!eventData.title) {
+    throw new Error('Event title is required');
+  }
+
+  if (eventData.title.length > 100) {
+    throw new Error(
+      `Event title too long (${eventData.title.length} chars).\n` +
+      `Maximum 100 characters.`
+    );
+  }
+
+  if (!eventData.date || !eventData.date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    throw new Error(
+      `Invalid event date format.\n` +
+      `Expected: YYYY-MM-DD\n` +
+      `Got: ${eventData.date}`
+    );
+  }
+
+  // 10. Notes length validation
+  if (eventData.notes && eventData.notes.length > 500) {
+    throw new Error(
+      `Event notes too long (${eventData.notes.length} chars).\n` +
+      `Maximum 500 characters.`
+    );
+  }
+}
+
 function saveAssignment(weekStartIso, eventId, eventData, assignments) {
   const sh = getSheet(DB_SHEET.ASSIGN);
   if (!sh) {
     throw new Error('Assignments sheet not found.');
   }
 
-  // Validate assignments
-  if (assignments && assignments.length > 0) {
-    // Validate assignment count
-    if (assignments.length > 10) {
-      throw new Error('Maximum 10 staff assignments per event. Please reduce assignments.');
-    }
-
-    assignments.forEach((a, idx) => {
-      if (!a.name) throw new Error(`Assignment ${idx + 1}: Employee name is required`);
-      if (!a.start || !a.end) throw new Error(`Assignment ${idx + 1}: Start and end times are required`);
-
-      // Validate name length
-      if (a.name.length > 50) {
-        throw new Error(`Assignment ${idx + 1}: Employee name too long (${a.name.length} chars). Maximum 50 characters.`);
-      }
-
-      // Validate time format
-      if (!a.start.match(/^\d{2}:\d{2}$/) || !a.end.match(/^\d{2}:\d{2}$/)) {
-        throw new Error(`Assignment ${idx + 1}: Invalid time format. Use HH:MM`);
-      }
-
-      // Validate time logic
-      if (a.start >= a.end) {
-        throw new Error(`Assignment ${idx + 1}: Start time must be before end time`);
-      }
-    });
-  }
-
-  // Validate event title length
-  if (eventData.title && eventData.title.length > 100) {
-    throw new Error(`Event title too long (${eventData.title.length} chars). Maximum 100 characters.`);
-  }
+  // Run comprehensive validation
+  validateAssignmentData(weekStartIso, eventId, eventData, assignments);
 
   const last = sh.getLastRow();
 

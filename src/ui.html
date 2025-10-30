@@ -491,6 +491,59 @@
         .replace(/\//g, '&#x2F;');
     }
 
+    // Loading state management
+    function setButtonLoading(button, loading, loadingText = '⏳ Loading...') {
+      if (!button) return;
+
+      if (loading) {
+        button.dataset.originalText = button.textContent;
+        button.textContent = loadingText;
+        button.disabled = true;
+        button.style.opacity = '0.6';
+        button.style.cursor = 'not-allowed';
+      } else {
+        button.textContent = button.dataset.originalText || button.textContent;
+        button.disabled = false;
+        button.style.opacity = '1';
+        button.style.cursor = 'pointer';
+      }
+    }
+
+    function showGlobalLoading(message = 'Loading...') {
+      // Remove existing overlay if any
+      hideGlobalLoading();
+
+      const overlay = document.createElement('div');
+      overlay.id = 'globalLoading';
+      overlay.innerHTML = `
+        <div style="position:fixed; top:0; left:0; width:100%; height:100%;
+                    background:rgba(0,0,0,0.5); z-index:9999;
+                    display:flex; align-items:center; justify-content:center;">
+          <div style="background:white; padding:40px; border-radius:16px; text-align:center; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+            <div style="font-size:48px; margin-bottom:16px; animation: spin 1s linear infinite;">⏳</div>
+            <div style="font-size:18px; font-weight:600; color:#333;">${sanitizeHTML(message)}</div>
+          </div>
+        </div>
+      `;
+
+      // Add spin animation
+      const style = document.createElement('style');
+      style.textContent = `
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `;
+      overlay.appendChild(style);
+
+      document.body.appendChild(overlay);
+    }
+
+    function hideGlobalLoading() {
+      const overlay = document.getElementById('globalLoading');
+      if (overlay) overlay.remove();
+    }
+
     // Initialize
     google.script.run
       .withSuccessHandler(init)
@@ -519,11 +572,22 @@
 
     function loadWeek() {
       const w = $('#weekStart').value;
+      const fetchBtn = document.querySelector('.primary');
+
+      // Show loading state
       $('#events').innerHTML = '<div class="loader">Loading events...</div>';
+      setButtonLoading(fetchBtn, true, '⏳ Loading...');
 
       google.script.run
-        .withSuccessHandler(renderWeek)
-        .withFailureHandler(showError)
+        .withSuccessHandler(data => {
+          renderWeek(data);
+          setButtonLoading(fetchBtn, false);
+        })
+        .withFailureHandler(err => {
+          showError(err);
+          setButtonLoading(fetchBtn, false);
+          $('#events').innerHTML = '<div class="loader" style="color: #f56565;">Failed to load events. Please try again.</div>';
+        })
         .api_getWeek(w);
     }
 
@@ -719,10 +783,17 @@
       // Add notes and updated times to event object
       const eventWithNotes = { ...event, notes: notes, start: eventStart, end: eventEnd };
 
+      // Find save button and show loading state
+      const eventCard = document.querySelector(`[data-event-idx="${eventIdx}"]`);
+      const saveBtn = eventCard ? eventCard.querySelector('.save-btn') : null;
+
+      setButtonLoading(saveBtn, true, '⏳ Saving...');
+
       // Save to backend
       google.script.run
         .withSuccessHandler(() => {
-          alert('Assignments saved successfully!');
+          setButtonLoading(saveBtn, false);
+          alert('✅ Assignments saved successfully!');
           // Update local data
           if (!weekData.assignments) weekData.assignments = {};
           weekData.assignments[event.id] = assignments;
@@ -731,15 +802,24 @@
           weekData.events[eventIdx].start = eventStart;
           weekData.events[eventIdx].end = eventEnd;
         })
-        .withFailureHandler(showError)
+        .withFailureHandler(err => {
+          setButtonLoading(saveBtn, false);
+          showError(err);
+        })
         .api_saveAssignment($('#weekStart').value, event.id, eventWithNotes, assignments);
     }
 
     function copySchedule() {
       const w = $('#weekStart').value;
+      const copyBtn = document.querySelector('.success');
+
+      // Show loading state
+      setButtonLoading(copyBtn, true, '⏳ Generating...');
 
       google.script.run
         .withSuccessHandler((res) => {
+          setButtonLoading(copyBtn, false);
+
           if (!res.success) {
             showError({ message: 'Failed to generate schedule' });
             return;
@@ -753,7 +833,10 @@
           // Store message for copying
           window.currentScheduleMessage = res.message;
         })
-        .withFailureHandler(showError)
+        .withFailureHandler(err => {
+          setButtonLoading(copyBtn, false);
+          showError(err);
+        })
         .api_getScheduleMessage(w);
     }
 
@@ -854,13 +937,20 @@
         return;
       }
 
+      // Show global loading while saving and reloading
+      showGlobalLoading('Saving location...');
+
       google.script.run
         .withSuccessHandler(() => {
-          alert('Location saved successfully! Refreshing...');
+          alert('✅ Location saved successfully! Refreshing...');
           closeLocationModal();
-          loadWeek(); // Reload to show updated location
+          loadWeek(); // Reload to show updated location (has its own loading state)
+          hideGlobalLoading();
         })
-        .withFailureHandler(showError)
+        .withFailureHandler(err => {
+          hideGlobalLoading();
+          showError(err);
+        })
         .api_saveVenue(venueName, fullAddress, city, state, notes);
     }
 
