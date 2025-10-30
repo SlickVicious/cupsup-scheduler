@@ -452,6 +452,45 @@
       return div.innerHTML;
     }
 
+    // Sanitize URLs to prevent javascript: and data: URL injection
+    function sanitizeURL(url) {
+      if (!url) return '';
+      const urlStr = String(url).trim().toLowerCase();
+
+      // Block dangerous URL schemes
+      const dangerousSchemes = ['javascript:', 'data:', 'vbscript:', 'file:', 'about:'];
+      if (dangerousSchemes.some(scheme => urlStr.startsWith(scheme))) {
+        console.warn('Blocked dangerous URL scheme:', url);
+        return '#'; // Return safe placeholder
+      }
+
+      // Only allow http:, https:, and relative URLs
+      if (urlStr.startsWith('http://') || urlStr.startsWith('https://') || urlStr.startsWith('/') || urlStr.startsWith('./')) {
+        return url; // Safe URL
+      }
+
+      // If no scheme, assume it's a relative URL (safe)
+      if (!urlStr.includes(':')) {
+        return url;
+      }
+
+      // Block anything else
+      console.warn('Blocked unrecognized URL scheme:', url);
+      return '#';
+    }
+
+    // Sanitize for use in HTML attributes (additional escaping for quotes)
+    function sanitizeAttribute(text) {
+      if (text == null || text === undefined) return '';
+      return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#x27;')
+        .replace(/\//g, '&#x2F;');
+    }
+
     // Initialize
     google.script.run
       .withSuccessHandler(init)
@@ -531,7 +570,8 @@
       // Build location display with map link if available
       let locationHTML = '';
       if (ev.mapLink) {
-        locationHTML = `<a href="${sanitizeHTML(ev.mapLink)}" target="_blank" style="color: #667eea; text-decoration: none; word-break: break-word;">📍 ${sanitizeHTML(location)}</a>`;
+        // Use sanitizeURL to prevent javascript: and data: URL injection
+        locationHTML = `<a href="${sanitizeURL(ev.mapLink)}" target="_blank" rel="noopener noreferrer" style="color: #667eea; text-decoration: none; word-break: break-word;">📍 ${sanitizeHTML(location)}</a>`;
       } else {
         locationHTML = `<span style="word-break: break-word;">📍 ${sanitizeHTML(location)}</span>`;
       }
@@ -563,9 +603,9 @@
               ⏰ Event Time Slot
             </label>
             <div style="display: flex; gap: 8px; align-items: center;">
-              <input type="time" id="event-start-${idx}" value="${sanitizeHTML(ev.start)}" style="flex: 1; padding: 12px; font-size: 15px; min-height: 48px; border: 1px solid #ddd; border-radius: 8px;">
+              <input type="time" id="event-start-${idx}" value="${sanitizeAttribute(ev.start)}" style="flex: 1; padding: 12px; font-size: 15px; min-height: 48px; border: 1px solid #ddd; border-radius: 8px;">
               <span style="color: #666; font-weight: 600;">–</span>
-              <input type="time" id="event-end-${idx}" value="${sanitizeHTML(ev.end)}" style="flex: 1; padding: 12px; font-size: 15px; min-height: 48px; border: 1px solid #ddd; border-radius: 8px;">
+              <input type="time" id="event-end-${idx}" value="${sanitizeAttribute(ev.end)}" style="flex: 1; padding: 12px; font-size: 15px; min-height: 48px; border: 1px solid #ddd; border-radius: 8px;">
             </div>
           </div>
 
@@ -631,7 +671,7 @@
         <select data-event="${eventIdx}" data-staff="${staffIdx}" style="flex: 1;">
           <option value="">-- Select Employee --</option>
           ${employeeList.map(emp =>
-            `<option value="${sanitizeHTML(emp.Name)}" ${emp.Name === selectedName ? 'selected' : ''}>${sanitizeHTML(emp.Name)} (${sanitizeHTML(emp.Role)})</option>`
+            `<option value="${sanitizeAttribute(emp.Name)}" ${emp.Name === selectedName ? 'selected' : ''}>${sanitizeHTML(emp.Name)} (${sanitizeHTML(emp.Role)})</option>`
           ).join('')}
         </select>
         <button class="remove-btn" onclick="removeStaffRow(this)">Remove</button>
