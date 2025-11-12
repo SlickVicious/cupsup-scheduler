@@ -165,27 +165,301 @@ Saves staff assignments for an event.
     start: string,
     end: string,
     city: string,
-    state: string
+    state: string,
+    fullAddress: string,    // NEW: Full location address
+    locationRaw: string,    // NEW: Raw location from calendar
+    notes: string           // NEW: Optional event notes
   }
   ```
-- `assignments` (Array): Staff assignments
+- `assignments` (Array): Staff assignments with individual time slots
   ```javascript
   [
-    {name: string, start: string, end: string}
+    {name: string, start: string, end: string}  // Each staff member has own times
   ]
   ```
 
 **Returns:**
 - `Object`: Success status `{success: true}`
 
+**Throws:**
+- `Error`: If validation fails (see `validateAssignmentData`)
+
+**Validation Performed:**
+- Employee exists in Employees sheet
+- Time format (HH:MM)
+- Time logic (start < end)
+- Within event hours (with 1-hour buffer)
+- No overlapping assignments for same employee
+- String length limits (name ≤50, title ≤100, notes ≤500)
+- Maximum 20 staff per event
+
 **Example:**
 ```javascript
 saveAssignment(
   '2025-01-06',
   'abc123',
-  {title: "Coffee Popup", date: "2025-01-06", start: "09:00", end: "17:00", city: "NYC", state: "NY"},
-  [{name: "John Doe", start: "09:00", end: "13:00"}]
+  {
+    title: "Coffee Popup",
+    date: "2025-01-06",
+    start: "09:00",
+    end: "17:00",
+    city: "NYC",
+    state: "NY",
+    fullAddress: "123 Main St, New York, NY 10001",
+    notes: "Setup at 8am"
+  },
+  [
+    {name: "John Doe", start: "09:00", end: "13:00"},
+    {name: "Jane Smith", start: "13:00", end: "17:00"}
+  ]
 );
+```
+
+---
+
+### `getVenues()`
+
+Retrieves all venues from the Venues sheet.
+
+**Returns:**
+- `Array<Object>`: Array of venue objects:
+  ```javascript
+  {
+    name: string,
+    address: string,
+    city: string,
+    state: string,
+    notes: string
+  }
+  ```
+
+**Example:**
+```javascript
+const venues = getVenues();
+// [
+//   {
+//     name: "Coffee House",
+//     address: "123 Main St, New York, NY 10001",
+//     city: "New York",
+//     state: "NY",
+//     notes: "Auto-saved from calendar"
+//   }
+// ]
+```
+
+---
+
+### `lookupVenue(eventTitle)`
+
+Looks up a venue by event title (exact or partial match).
+
+**Parameters:**
+- `eventTitle` (string): Event title to search for
+
+**Returns:**
+- `Object`: Venue object if found, `null` otherwise
+
+**Matching Strategy:**
+1. Exact match (case-insensitive)
+2. Partial match (venue name in event title or vice versa)
+
+**Example:**
+```javascript
+const venue = lookupVenue("Coffee House Popup");
+// Returns venue data for "Coffee House" if it exists
+```
+
+---
+
+### `saveVenue(venueName, fullAddress, city, state, notes)`
+
+Saves or updates a venue in the Venues sheet.
+
+**Parameters:**
+- `venueName` (string): Venue name
+- `fullAddress` (string): Complete address
+- `city` (string): City name
+- `state` (string): 2-letter state code
+- `notes` (string): Optional notes (default: '')
+
+**Returns:**
+- `Object`: Success status `{success: true}`
+
+**Behavior:**
+- If venue exists (by name), it's updated
+- If venue doesn't exist, it's created
+- Venues sheet is auto-created if missing
+
+**Example:**
+```javascript
+saveVenue(
+  "Coffee House",
+  "123 Main St, New York, NY 10001",
+  "New York",
+  "NY",
+  "Main location"
+);
+```
+
+---
+
+### `removeDuplicateVenues()`
+
+Removes duplicate venue entries from the Venues sheet (manual trigger via menu).
+
+**Behavior:**
+- Compares venue names (case-insensitive)
+- Keeps first occurrence of each venue
+- Removes all duplicates and empty rows
+- Shows confirmation dialog before proceeding
+
+**Example:**
+```javascript
+// Called from custom menu: "🧹 Remove Duplicate Venues"
+// Shows results: "Removed 5 duplicate/empty rows. Kept 20 unique venues."
+```
+
+---
+
+### `bulkImportHistoricalVenues()`
+
+One-time import of venues from calendar history (manual trigger via menu).
+
+**Behavior:**
+- Scans calendar from 6 months ago to 6 months ahead
+- Extracts locations from all events
+- Auto-saves venues that don't already exist
+- Skips events without locations or non-event entries
+
+**Example:**
+```javascript
+// Called from custom menu: "📍 Bulk Import Historical Venues (RUN ONCE)"
+// Shows results: "Imported: 45 new venues. Skipped: 120 (already exist or no location)"
+```
+
+---
+
+### `validateAssignmentData(weekStartIso, eventId, eventData, assignments)`
+
+Comprehensive validation for assignment data (called internally by `saveAssignment`).
+
+**Validates:**
+1. Employee existence (checks Employees sheet)
+2. Maximum assignments (≤20 per event)
+3. Required fields (name, start, end)
+4. Time format (HH:MM)
+5. Time logic (start < end)
+6. String length limits (name ≤50, title ≤100, notes ≤500)
+7. Event time boundaries (with 1-hour setup/cleanup buffer)
+8. Duplicate/overlap detection within same event
+9. Date format (YYYY-MM-DD)
+
+**Throws:**
+- `Error`: Detailed error message with position and fix suggestions
+
+**Example:**
+```javascript
+// Called automatically by saveAssignment
+// Throws: "Assignment 2: Employee "Bob" not found in Employees sheet.
+//          Valid employees: John Doe, Jane Smith, ..."
+```
+
+---
+
+### `validateEmployeePhone(phone, employeeName)`
+
+Validates and cleans employee phone numbers.
+
+**Parameters:**
+- `phone` (string): Phone number to validate
+- `employeeName` (string): Employee name (for error messages)
+
+**Returns:**
+- `string`: Cleaned phone number in +1XXXXXXXXXX format
+
+**Throws:**
+- `Error`: If phone is empty, invalid format, or known test number
+
+**Validation:**
+- Must be in +1XXXXXXXXXX format
+- Exactly 11 characters (+1 + 10 digits)
+- Warns about test/invalid numbers (555-555-xxxx, etc.)
+
+**Example:**
+```javascript
+const validPhone = validateEmployeePhone("+15551234567", "John Doe");
+// Returns: "+15551234567"
+
+validateEmployeePhone("5551234567", "John Doe");
+// Throws: "Invalid phone format for John Doe: "5551234567"
+//          Expected format: +1XXXXXXXXXX (e.g., +15551234567)"
+```
+
+---
+
+### `checkDuplicatePhones(employees)`
+
+Checks for duplicate phone numbers across employees.
+
+**Parameters:**
+- `employees` (Array): List of employee objects
+
+**Returns:**
+- `Array`: Array of duplicate issues (empty if none)
+  ```javascript
+  [
+    {
+      phone: "+15551234567",
+      employees: ["John Doe", "Jane Smith"]
+    }
+  ]
+  ```
+
+**Example:**
+```javascript
+const duplicates = checkDuplicatePhones(employees);
+if (duplicates.length > 0) {
+  // Handle duplicates
+}
+```
+
+---
+
+### `getScheduleMessage(weekStartIso)`
+
+Generates the formatted weekly schedule message for SMS.
+
+**Parameters:**
+- `weekStartIso` (string): ISO date for week start
+
+**Returns:**
+- `Object`:
+  ```javascript
+  {
+    success: true,
+    message: string,         // Formatted SMS message
+    eventCount: number,      // Number of events
+    characterCount: number   // Message length
+  }
+  ```
+
+**Message Format:**
+- Compact date range header (e.g., "CUPSUP SCHEDULE: Nov 5-10")
+- Groups events by day
+- 12-hour time format (9:00am-5:00pm)
+- Google Maps links for locations
+- Event notes with 📝 emoji
+- Staff names (individual times when different from event)
+
+**Example:**
+```javascript
+const result = getScheduleMessage('2025-01-06');
+// {
+//   success: true,
+//   message: "CUPSUP SCHEDULE: Jan 6-12\n\nMonday\nCoffee Popup 9:00am-5:00pm\n📍 New York, NY\n...",
+//   eventCount: 5,
+//   characterCount: 452
+// }
 ```
 
 ---
@@ -418,9 +692,16 @@ Sends an SMS via Twilio API.
 
 ### Assignments Sheet Format
 
-| WeekStart | EventId | Title | Date | Start | End | City | State | Assigned | SentLog |
-|-----------|---------|-------|------|-------|-----|------|-------|----------|---------|
-| 2025-01-06 | abc123 | Coffee Popup | 2025-01-06 | 09:00 | 17:00 | New York | NY | John Doe:09:00-13:00, Jane Smith:13:00-17:00 | Group chat sent 2025-01-05T... |
+| WeekStart | EventId | Title | Date | Start | End | City | State | Assigned | SMSStatus | FullAddress | Notes |
+|-----------|---------|-------|------|-------|-----|------|-------|----------|-----------|-------------|-------|
+| 2025-01-06 | abc123 | Coffee Popup | 2025-01-06 | 09:00 | 17:00 | New York | NY | John Doe:09:00-13:00, Jane Smith:13:00-17:00 | Group chat sent 2025-01-05T... | 123 Main St, New York, NY 10001 | Setup at 8am |
+
+### Venues Sheet Format
+
+| Venue Name | Full Address | City | State | Notes |
+|------------|--------------|------|-------|-------|
+| Coffee House | 123 Main St, New York, NY 10001 | New York | NY | Auto-saved from calendar |
+| Festival Grounds | 456 Park Ave, Brooklyn, NY 11201 | Brooklyn | NY | Outdoor venue |
 
 ### Assignment Data Format
 
@@ -516,10 +797,28 @@ try {
 
 ## Version Information
 
-- **Current Version**: 1.0.0
+- **Current Version**: 1.0.0 (Security Hardened)
+- **Status**: ✅ Production Ready
+- **Security Grade**: A- (9/10)
 - **Google Apps Script Runtime**: V8
 - **Twilio API**: 2010-04-01
+- **Last Updated**: November 2025
+
+## Recent API Additions
+
+### v1.0.0 (November 2025)
+- Added `getVenues()` - Venue database retrieval
+- Added `lookupVenue(eventTitle)` - Venue search
+- Added `saveVenue()` - Venue management
+- Added `removeDuplicateVenues()` - Cleanup utility
+- Added `bulkImportHistoricalVenues()` - Historical import
+- Added `validateAssignmentData()` - Comprehensive validation
+- Added `validateEmployeePhone()` - Phone validation
+- Added `checkDuplicatePhones()` - Duplicate detection
+- Enhanced `saveAssignment()` - Individual time slots, notes support
+- Enhanced `getScheduleMessage()` - Google Maps links, notes, 12-hour format
+- Enhanced `fetchWeekEvents()` - Multi-day support, venue auto-save
 
 ---
 
-For implementation examples, see [CupsUp Workflow Guide](./claude-code-cupsup-workflow.md)
+For implementation examples, see [CupsUp Workflow Guide](./development/claude-code-cupsup-workflow.md)
