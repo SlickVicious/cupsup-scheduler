@@ -1,0 +1,38 @@
+{
+	"folders": [
+		{
+			"name": "📅 Scheduler (Current)",
+			"path": "cupsup-scheduler"
+		},
+		{
+			"name": "✅ Cups Up Complete",
+			"path": "cups-up-complete"
+		},
+		{
+			"name": "🏢 BET June 2025 (Legacy)",
+			"path": "BET June 2025"
+		},
+		{
+			"name": "📊 Production Analytics",
+			"path": "Cups-Up-Production-Analytics"
+		}
+	],
+	"settings": {
+		"files.exclude": {
+			"**/node_modules": true,
+			"**/.git": true,
+			"**/.DS_Store": true,
+			"**/Thumbs.db": true
+		},
+		"search.exclude": {
+			"**/node_modules": true,
+			"**/dist": true
+		},
+		"workbench.colorCustomizations": {
+			"titleBar.activeBackground": "#2b2b2b",
+			"titleBar.activeForeground": "#FFD700",
+			"activityBar.background": "#2b2b2b",
+			"statusBar.background": "#007acc"
+		}
+	}
+}

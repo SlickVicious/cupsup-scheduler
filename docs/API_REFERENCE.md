@@ -37,10 +37,7 @@ Retrieves all configuration settings from the Settings sheet and Script Properti
 - `Object`: Configuration object containing:
   - `CALENDAR_ID` (string): Google Calendar ID
   - `TIMEZONE` (string): IANA timezone name
-  - `TWILIO_FROM` (string): Twilio phone number
   - `GROUP_CHAT_NUMBERS` (string): Comma-separated recipient numbers
-  - `TWILIO_SID` (string): Twilio Account SID (from Script Properties)
-  - `TWILIO_AUTH` (string): Twilio Auth Token (from Script Properties)
 
 **Throws:**
 - `Error`: If Settings sheet not found or empty
@@ -464,36 +461,6 @@ const result = getScheduleMessage('2025-01-06');
 
 ---
 
-### `sendGroupChatSchedule(weekStartIso)`
-
-Sends the weekly schedule via SMS to all configured recipients.
-
-**Parameters:**
-- `weekStartIso` (string): ISO date for the week
-
-**Returns:**
-- `Object`: Send status:
-  ```javascript
-  {
-    count: number,        // Successfully sent
-    numbers: number,      // Total recipients
-    preview: string       // Message preview
-  }
-  ```
-
-**Throws:**
-- `Error`: If Twilio not configured
-- `Error`: If no assignments found
-- `Error`: If GROUP_CHAT_NUMBERS not set
-
-**Example:**
-```javascript
-const result = sendGroupChatSchedule('2025-01-06');
-// {count: 5, numbers: 5, preview: "☕ CUPSUP SCHEDULE..."}
-```
-
----
-
 ## API Methods
 
 These functions are exposed to the client-side JavaScript.
@@ -656,22 +623,6 @@ parseCityState("123 Main St, New York, NY 10001")
 
 ---
 
-### `twilioSend(sid, auth, from, to, body)`
-
-Sends an SMS via Twilio API.
-
-**Parameters:**
-- `sid` (string): Twilio Account SID
-- `auth` (string): Twilio Auth Token
-- `from` (string): Sender phone number
-- `to` (string): Recipient phone number
-- `body` (string): Message text
-
-**Throws:**
-- `Error`: If Twilio API returns error
-
----
-
 ## Data Structures
 
 ### Settings Sheet Format
@@ -680,7 +631,6 @@ Sends an SMS via Twilio API.
 |-----|-------|
 | CALENDAR_ID | your-calendar@group.calendar.google.com |
 | TIMEZONE | America/New_York |
-| TWILIO_FROM | +15551234567 |
 | GROUP_CHAT_NUMBERS | +15559876543,+15551112222 |
 
 ### Employees Sheet Format
@@ -741,10 +691,7 @@ Executes complete test suite.
 - `test_settings()`: Validate settings configuration
 - `test_employees()`: Validate employee data
 - `test_calendar()`: Test calendar access
-- `test_twilio_creds()`: Validate Twilio credentials
 - `test_fetch_week()`: Test event fetching
-- `test_group_numbers()`: Validate recipient numbers
-- `test_send_to_me()`: Send test SMS
 
 ### Custom Menu Function
 
@@ -772,28 +719,22 @@ try {
 ### Google Apps Script Quotas
 
 - Calendar API: 10,000 calls/day
-- UrlFetch (Twilio): 20,000 calls/day
+- UrlFetch: 20,000 calls/day
 - Script runtime: 6 min/execution
-
-### Twilio Limits
-
-- Free tier: 500 SMS/month
-- Paid accounts: Varies by plan
-- Rate limiting: ~1 message/second
 
 ## Security Considerations
 
 ### Sensitive Data Storage
 
-- ✅ **Script Properties**: TWILIO_SID, TWILIO_AUTH
-- ❌ **Never in Settings sheet**: Twilio credentials
+- ✅ **Script Properties**: For storing sensitive configuration
+- ❌ **Never in Settings sheet**: Sensitive credentials
 - ❌ **Never in code**: Hard-coded secrets
 
 ### Access Control
 
 - Web app access controlled via deployment settings
 - Sheet permissions separate from app permissions
-- Twilio credentials only accessible server-side
+- Sensitive data only accessible server-side
 
 ## Version Information
 
@@ -801,7 +742,6 @@ try {
 - **Status**: ✅ Production Ready
 - **Security Grade**: A- (9/10)
 - **Google Apps Script Runtime**: V8
-- **Twilio API**: 2010-04-01
 - **Last Updated**: November 2025
 
 ## Recent API Additions

@@ -77,8 +77,7 @@ test('Code.gs is valid JavaScript', () => {
     'fetchWeekEvents',
     'getAssignments',
     'saveAssignment',
-    'sendGroupChatSchedule',
-    'twilioSend',
+    'getScheduleMessage',
     'runAutomatedTests',
     'onOpen'
   ];
@@ -134,13 +133,9 @@ test('ui.html is valid HTML', () => {
 test('No hardcoded credentials in Code.gs', () => {
   const code = fs.readFileSync('src/Code.gs', 'utf8');
 
-  // Check for hardcoded Twilio credentials (would start with AC for SID)
-  if (/TWILIO_SID\s*[:=]\s*['"]AC[a-f0-9]{32}['"]/.test(code)) {
-    throw new Error('Hardcoded TWILIO_SID found');
-  }
-
-  if (/TWILIO_AUTH\s*[:=]\s*['"][a-f0-9]{32}['"]/.test(code)) {
-    throw new Error('Hardcoded TWILIO_AUTH found');
+  // Check for hardcoded credentials
+  if (/API_KEY\s*[:=]\s*['"][a-zA-Z0-9]{32,}['"]/.test(code)) {
+    throw new Error('Hardcoded API credentials found');
   }
 
   // Check for phone numbers
@@ -285,21 +280,7 @@ test('API methods match UI calls', () => {
   });
 });
 
-// Test 14: Twilio Error Handling
-test('Twilio error codes handled', () => {
-  const code = fs.readFileSync('src/Code.gs', 'utf8');
-
-  // Check for error code handling
-  const errorCodes = ['21211', '21614', '20003'];
-
-  errorCodes.forEach(code_num => {
-    if (!code.includes(code_num)) {
-      warn('Twilio error handling', `Consider adding handler for error code ${code_num}`);
-    }
-  });
-});
-
-// Test 15: Test Functions Exist
+// Test 14: Test Functions Exist
 test('Test functions implemented', () => {
   const code = fs.readFileSync('src/Code.gs', 'utf8');
 
@@ -308,10 +289,7 @@ test('Test functions implemented', () => {
     'test_settings',
     'test_employees',
     'test_calendar',
-    'test_twilio_creds',
-    'test_fetch_week',
-    'test_group_numbers',
-    'test_send_to_me'
+    'test_fetch_week'
   ];
 
   testFunctions.forEach(fn => {

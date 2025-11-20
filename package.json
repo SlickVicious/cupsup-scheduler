@@ -1,7 +1,7 @@
 {
   "name": "cupsup-scheduler",
   "version": "1.0.0",
-  "description": "Google Apps Script-based scheduling system with Twilio SMS group chat notifications",
+  "description": "Google Apps Script-based scheduling system for employee scheduling and calendar management",
   "main": "src/Code.gs",
   "scripts": {
     "login": "clasp login",
@@ -18,13 +18,9 @@
   "keywords": [
     "google-apps-script",
     "scheduler",
-    "twilio",
-    "sms",
     "calendar",
     "employee-management",
-    "scheduling",
-    "group-chat",
-    "notifications"
+    "scheduling"
   ],
   "author": "Your Name",
   "license": "MIT",

@@ -1036,7 +1036,7 @@ function runAutomatedTests() {
   // Test 2: Settings Configuration
   try {
     const settings = getSettings();
-    const required = ['CALENDAR_ID', 'TIMEZONE', 'TWILIO_FROM', 'GROUP_CHAT_NUMBERS'];
+    const required = ['CALENDAR_ID', 'TIMEZONE', 'GROUP_CHAT_NUMBERS'];
     const missing = required.filter(k => !settings[k]);
 
     if (missing.length > 0) {
@@ -1044,32 +1044,11 @@ function runAutomatedTests() {
     } else {
       addTest('Settings Config', 'PASS', 'All settings configured');
     }
-
-    // Validate phone number format
-    if (settings.TWILIO_FROM && !settings.TWILIO_FROM.match(/^\+1\d{10}$/)) {
-      addTest('TWILIO_FROM Format', 'WARN', 'Should be +1XXXXXXXXXX format', settings.TWILIO_FROM);
-    } else {
-      addTest('TWILIO_FROM Format', 'PASS', 'Correct format');
-    }
   } catch (e) {
     addTest('Settings Config', 'FAIL', e.message);
   }
 
-  // Test 3: Twilio Credentials
-  try {
-    const settings = getSettings();
-    if (!settings.TWILIO_SID || !settings.TWILIO_AUTH) {
-      addTest('Twilio Credentials', 'FAIL', 'TWILIO_SID or TWILIO_AUTH not set in Script Properties');
-    } else if (settings.TWILIO_SID.length < 30 || settings.TWILIO_AUTH.length < 30) {
-      addTest('Twilio Credentials', 'WARN', 'Credentials seem too short, verify they are correct');
-    } else {
-      addTest('Twilio Credentials', 'PASS', 'Credentials found in Script Properties');
-    }
-  } catch (e) {
-    addTest('Twilio Credentials', 'FAIL', e.message);
-  }
-
-  // Test 4: Calendar Access
+  // Test 3: Calendar Access
   try {
     const settings = getSettings();
     const cal = CalendarApp.getCalendarById(settings.CALENDAR_ID);
@@ -1081,7 +1060,7 @@ function runAutomatedTests() {
     addTest('Calendar Access', 'FAIL', e.message, 'Check calendar permissions');
   }
 
-  // Test 5: Employee Data Validation
+  // Test 4: Employee Data Validation
   try {
     const employees = listEmployees();
     if (employees.length === 0) {
@@ -1103,7 +1082,7 @@ function runAutomatedTests() {
     addTest('Employee Data', 'FAIL', e.message);
   }
 
-  // Test 6: Fetch Events Test
+  // Test 5: Fetch Events Test
   try {
     const today = new Date();
     const monday = new Date(today);
@@ -1118,7 +1097,7 @@ function runAutomatedTests() {
     addTest('Fetch Events', 'FAIL', e.message);
   }
 
-  // Test 7: Group Chat Numbers
+  // Test 6: Group Chat Numbers
   try {
     const settings = getSettings();
     const numbers = settings.GROUP_CHAT_NUMBERS
@@ -1271,11 +1250,10 @@ function test_settings() {
     let report = '✅ SETTINGS LOADED SUCCESSFULLY\n\n';
     report += `Calendar: ${settings.CALENDAR_ID}\n`;
     report += `Timezone: ${settings.TIMEZONE}\n`;
-    report += `Twilio From: ${settings.TWILIO_FROM}\n`;
     report += `Group Chat: ${settings.GROUP_CHAT_NUMBERS ? settings.GROUP_CHAT_NUMBERS.substring(0, 50) + '...' : 'NOT SET'}\n\n`;
 
     // Check for missing settings
-    const required = ['CALENDAR_ID', 'TIMEZONE', 'TWILIO_FROM', 'GROUP_CHAT_NUMBERS'];
+    const required = ['CALENDAR_ID', 'TIMEZONE', 'GROUP_CHAT_NUMBERS'];
     const missing = required.filter(k => !settings[k]);
 
     if (missing.length > 0) {

@@ -1,965 +1,361 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
 <head>
-  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-  <meta charset="utf-8">
-  <title>CupsUp Scheduler</title>
+  <base target="_top">
+  <!-- Font Loading & Styles -->
+  <?!= HtmlService.createHtmlOutputFromFile('scheduler-dark-theme').getContent(); ?>
   <style>
-    * { box-sizing: border-box; }
-
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      margin: 0;
-      padding: 12px;
-      background: #ffffff;
-      min-height: 100vh;
+      background-color: #36454F !important;
     }
-
-    .container {
-      max-width: 900px;
-      margin: 0 auto;
-    }
-
-    header {
-      background: #f8f9fa;
-      padding: 16px;
-      border-radius: 16px;
-      margin-bottom: 20px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      border: 1px solid #e0e0e0;
-    }
-
-    h1 {
-      margin: 0 0 12px 0;
-      font-size: 24px;
-      color: #333;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .controls {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-bottom: 12px;
-    }
-
-    input, button, select {
-      font-size: 16px;
-      padding: 14px 18px;
-      border-radius: 12px;
-      border: 1px solid #ddd;
-      font-family: inherit;
-      min-height: 48px;
-    }
-
-    input[type="date"] {
-      flex: 1;
-      min-width: 160px;
-    }
-
-    button {
-      border: none;
-      background: #667eea;
-      color: white;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    button:hover {
-      background: #5568d3;
-      transform: translateY(-1px);
-    }
-
-    button.primary {
-      background: #764ba2;
-      flex: 1;
-    }
-
-    button.success {
-      background: #48bb78;
-    }
-
-    .meta {
-      font-size: 13px;
-      color: #666;
-      padding: 8px 0;
-      display: flex;
-      gap: 16px;
-      flex-wrap: wrap;
-    }
-
-    #events {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
     .event-card {
-      background: white;
-      border-radius: 16px;
-      padding: 16px;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.1);
-      transition: all 0.2s;
+      background-color: #808080 !important;
+      color: #FFFFFF !important;
     }
-
-    .event-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    .event-card h2, .event-card p, .event-card span, .event-card label, .event-card div {
+      color: #FFFFFF !important;
     }
-
-    .event-header {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      margin-bottom: 8px;
-      flex-wrap: wrap;
+    .location-link {
+      color: #FFFFFF !important; /* A bright color from the theme */
+      text-decoration: none;
+      font-weight: bold;
     }
-
-    .pill {
-      font-size: 12px;
-      padding: 4px 10px;
-      border-radius: 12px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      font-weight: 600;
+    .location-link:hover {
+      text-decoration: underline;
     }
-
-    .time {
-      font-size: 13px;
-      color: #666;
-      font-weight: 500;
+    .event-time {
+      color: #FFFFFF !important; /* Brighter time */
     }
-
-    .event-title {
-      font-size: 18px;
-      font-weight: 700;
-      color: #333;
-      margin: 8px 0;
+    .event-date-badge {
+      background-color: #6c757d !important;
+      color: #FFFFFF !important;
     }
-
-    .location {
-      font-size: 14px;
-      color: #666;
-      margin: 4px 0;
+    .notes-label {
+      color: #FFFFFF !important;
     }
-
-    .assignments {
-      margin-top: 16px;
-      padding-top: 16px;
-      border-top: 2px solid #f0f0f0;
-    }
-
-    .assignments-header {
-      font-size: 13px;
-      font-weight: 700;
-      text-transform: uppercase;
-      color: #999;
-      margin-bottom: 12px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .add-staff-btn {
-      font-size: 14px;
-      padding: 10px 16px;
-      background: #48bb78;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      min-height: 44px;
-    }
-
-    .staff-row {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 8px;
-      align-items: center;
-    }
-
-    .staff-row select {
-      flex: 2;
-      padding: 12px;
-      font-size: 15px;
-      min-height: 48px;
-    }
-
-    .staff-row input[type="time"] {
-      flex: 1;
-      padding: 12px;
-      font-size: 15px;
-      min-height: 48px;
-    }
-
-    .remove-btn {
-      background: #f56565;
-      color: white;
-      border: none;
-      padding: 12px 16px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 14px;
-      min-height: 48px;
-    }
-
-    .save-btn {
-      margin-top: 12px;
-      width: 100%;
-      background: #667eea;
-      color: white;
-      border: none;
-      padding: 16px;
-      border-radius: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      font-size: 16px;
-      min-height: 52px;
-    }
-
-    .loader {
-      text-align: center;
-      padding: 40px;
-      color: #333;
-      font-size: 18px;
-    }
-
-    .empty-state {
-      text-align: center;
-      padding: 60px 20px;
-      background: white;
-      border-radius: 16px;
-    }
-
-    .edit-location-btn {
-      background: #f59e0b;
-      color: white;
-      border: none;
-      padding: 8px 16px;
-      border-radius: 8px;
-      font-size: 14px;
-      cursor: pointer;
-      margin-left: 8px;
-      min-height: 40px;
-    }
-
-    .edit-location-btn:hover {
-      background: #d97706;
-    }
-
-    .modal {
-      display: none;
-      position: fixed;
-      z-index: 1000;
-      left: 0;
-      top: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0,0,0,0.5);
-    }
-
-    .modal-content {
-      background: white;
-      margin: 10% auto;
-      padding: 24px;
-      border-radius: 16px;
-      max-width: 500px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-    }
-
-    .modal-header {
-      font-size: 20px;
-      font-weight: 600;
-      margin-bottom: 16px;
-    }
-
-    .modal-form label {
-      display: block;
-      margin-top: 12px;
-      margin-bottom: 4px;
-      font-weight: 500;
-      font-size: 14px;
-    }
-
-    .modal-form input,
-    .modal-form textarea {
-      width: 100%;
-      padding: 10px;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      font-family: inherit;
-    }
-
-    .modal-actions {
-      display: flex;
-      gap: 8px;
-      margin-top: 20px;
-    }
-
-    .modal-actions button {
-      flex: 1;
-    }
-
-    @media (max-width: 600px) {
-      body {
-        padding: 8px;
-      }
-
-      h1 {
-        font-size: 22px;
-      }
-
-      .controls {
-        gap: 10px;
-      }
-
-      .controls button {
-        font-size: 15px;
-        padding: 14px 16px;
-      }
-
-      .event-card {
-        padding: 14px;
-      }
-
-      .event-title {
-        font-size: 17px;
-      }
-
-      .location {
-        font-size: 13px;
-        margin: 6px 0;
-      }
-
-      .edit-location-btn {
-        display: block;
-        margin: 8px 0 0 0;
-        width: 100%;
-      }
-
-      .staff-row {
-        flex-wrap: wrap;
-        gap: 10px;
-      }
-
-      .staff-row select {
-        flex: 1 1 100%;
-        min-width: 100%;
-      }
-
-      .staff-row input[type="time"] {
-        flex: 1 1 calc(50% - 5px);
-        min-width: calc(50% - 5px);
-      }
-
-      .remove-btn {
-        flex: 1 1 100%;
-        width: 100%;
-        margin-top: 4px;
-      }
-
-      .assignments-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 8px;
-      }
-
-      .add-staff-btn {
-        width: 100%;
-      }
-
-      .modal-content {
-        margin: 5% 12px;
-        max-width: calc(100% - 24px);
-      }
+    .time-slot-label {
+      color: #FFFFFF !important;
     }
   </style>
 </head>
 <body>
-  <div class="container">
+  <div id="loading-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); color: white; display: flex; align-items: center; justify-content: center; z-index: 9999; font-family: var(--font-body); display: none;">
+    <p id="loading-message">Loading...</p>
+  </div>
+
+  <div class="page-container">
     <header>
-      <h1>CupsUp Scheduler</h1>
-
-      <div class="controls">
-        <input id="weekStart" type="date" />
-        <button class="primary" onclick="loadWeek()">Fetch Week</button>
-        <button class="success" onclick="copySchedule()">📋 Copy Schedule</button>
-      </div>
-
-      <div class="meta" id="meta">
-        <span>Loading...</span>
-      </div>
+      <h1 class="title">CupSup Scheduler</h1>
+      <p class="subtitle">Weekly staff scheduling and assignments.</p>
     </header>
 
-    <div id="events" class="loader">Loading scheduler...</div>
-  </div>
-
-  <!-- Location Edit Modal -->
-  <div id="locationModal" class="modal">
-    <div class="modal-content">
-      <div class="modal-header">Add/Edit Location</div>
-      <div class="modal-form">
-        <label>Event Name</label>
-        <input type="text" id="modalEventName" readonly style="background: #f5f5f5;">
-
-        <label>Full Address</label>
-        <input type="text" id="modalAddress" placeholder="123 Main St, City, ST 12345">
-
-        <label>City</label>
-        <input type="text" id="modalCity" placeholder="City name">
-
-        <label>State</label>
-        <input type="text" id="modalState" placeholder="VA" maxlength="2">
-
-        <label>Notes (optional)</label>
-        <textarea id="modalNotes" rows="2" placeholder="Any special instructions..."></textarea>
+    <div style="padding: 1.5rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+        <input type="date" id="date-picker" class="date-picker">
+        <div style="display: flex; gap: 1rem;">
+          <button id="fetch-button" class="btn-fetch-week">Fetch Week Data</button>
+          <button id="copy-schedule-button" class="btn-copy-schedule" style="display: none;">Copy Group Chat</button>
+        </div>
       </div>
-      <div class="modal-actions">
-        <button onclick="closeLocationModal()" style="background: #999;">Cancel</button>
-        <button onclick="saveLocationModal()" class="primary">Save Location</button>
+
+      <div id="info-section" class="info-section" style="margin-bottom: 2rem;">
+        <p class="info-text">Select a date and fetch the corresponding week's events from the calendar.</p>
+      </div>
+
+      <div id="events-container" style="display: flex; flex-direction: column; gap: 1.5rem;">
+        <!-- Event cards will be dynamically inserted here -->
+      </div>
+      
+      <div id="schedule-preview-container" style="margin-top: 2rem; display: none;">
+          <h3 style="font-family: var(--font-heading); color: var(--text-heading);">Group Chat Preview</h3>
+          <textarea id="schedule-preview" class="notes-textarea" rows="15" readonly style="width: 100%; font-family: var(--font-mono);"></textarea>
+      </div>
+
+      <div id="save-container" class="save-container" style="display: none;">
+        <button id="save-button" class="btn-save-assignments">Save All Assignments</button>
       </div>
     </div>
-  </div>
 
-  <!-- Schedule Preview Modal -->
-  <div id="scheduleModal" class="modal">
-    <div class="modal-content" style="max-width: 600px;">
-      <div class="modal-header">📋 Schedule Preview</div>
-      <div style="padding: 20px;">
-        <div style="margin-bottom: 10px; color: #666; font-size: 0.9em;" id="scheduleCharCount"></div>
-        <pre id="schedulePreview" style="background: #f5f5f5; padding: 15px; border-radius: 8px; white-space: pre-wrap; font-family: -apple-system, system-ui, sans-serif; font-size: 0.95em; max-height: 400px; overflow-y: auto; line-height: 1.5;"></pre>
-      </div>
-      <div class="modal-actions">
-        <button onclick="closeScheduleModal()" style="background: #999;">Close</button>
-        <button onclick="copyToClipboard()" class="success">📋 Copy to Clipboard</button>
-      </div>
-    </div>
   </div>
 
   <script>
-    const $ = sel => document.querySelector(sel);
-    let employeeList = [];
-    let weekData = {};
+    document.addEventListener('DOMContentLoaded', () => {
+      // --- STATE ---
+      let employees = [];
+      let weekStartIso = '';
+      let eventsData = [];
 
-    // Sanitize HTML to prevent XSS attacks
-    function sanitizeHTML(text) {
-      if (text == null || text === undefined) return '';
-      const div = document.createElement('div');
-      div.textContent = String(text);
-      return div.innerHTML;
-    }
+      // --- DOM ELEMENTS ---
+      const datePicker = document.getElementById('date-picker');
+      const fetchButton = document.getElementById('fetch-button');
+      const eventsContainer = document.getElementById('events-container');
+      const saveButton = document.getElementById('save-button');
+      const saveContainer = document.getElementById('save-container');
+      const infoSection = document.getElementById('info-section');
+      const copyScheduleButton = document.getElementById('copy-schedule-button');
+      const schedulePreviewContainer = document.getElementById('schedule-preview-container');
+      const schedulePreview = document.getElementById('schedule-preview');
 
-    // Sanitize URLs to prevent javascript: and data: URL injection
-    function sanitizeURL(url) {
-      if (!url) return '';
-      const urlStr = String(url).trim().toLowerCase();
-
-      // Block dangerous URL schemes
-      const dangerousSchemes = ['javascript:', 'data:', 'vbscript:', 'file:', 'about:'];
-      if (dangerousSchemes.some(scheme => urlStr.startsWith(scheme))) {
-        console.warn('Blocked dangerous URL scheme:', url);
-        return '#'; // Return safe placeholder
+      // --- INITIALIZATION ---
+      function initialize() {
+        setInitialDate();
+        addEventListeners();
+        showLoading('Initializing and fetching employees...');
+        google.script.run
+          .withSuccessHandler(onBootstrapSuccess)
+          .withFailureHandler(onFailure)
+          .api_getBootstrap();
       }
 
-      // Only allow http:, https:, and relative URLs
-      if (urlStr.startsWith('http://') || urlStr.startsWith('https://') || urlStr.startsWith('/') || urlStr.startsWith('./')) {
-        return url; // Safe URL
+      function setInitialDate() {
+        const today = new Date();
+        const dayOfWeek = today.getDay(); // Sunday = 0, Monday = 1
+        const daysToMonday = (dayOfWeek === 0) ? -6 : 1 - dayOfWeek;
+        const monday = new Date(today);
+        monday.setDate(today.getDate() + daysToMonday);
+        datePicker.value = monday.toISOString().split('T')[0];
       }
 
-      // If no scheme, assume it's a relative URL (safe)
-      if (!urlStr.includes(':')) {
-        return url;
+      function addEventListeners() {
+        fetchButton.addEventListener('click', fetchWeekData);
+        saveButton.addEventListener('click', saveAllAssignments);
+        copyScheduleButton.addEventListener('click', generateAndCopySchedule);
+        datePicker.addEventListener('change', () => {
+            eventsContainer.innerHTML = '';
+            saveContainer.style.display = 'none';
+            copyScheduleButton.style.display = 'none';
+            schedulePreviewContainer.style.display = 'none';
+            infoSection.style.display = 'block';
+        });
+      }
+      
+      function onBootstrapSuccess(data) {
+        employees = data.employees;
+        hideLoading();
       }
 
-      // Block anything else
-      console.warn('Blocked unrecognized URL scheme:', url);
-      return '#';
-    }
+      // --- DATA FETCHING ---
+      function fetchWeekData() {
+        const selectedDate = new Date(datePicker.value + 'T00:00:00Z'); // Use UTC to avoid timezone issues
+        const dayOfWeek = selectedDate.getUTCDay();
+        const daysToMonday = (dayOfWeek === 0) ? -6 : 1 - dayOfWeek;
+        selectedDate.setUTCDate(selectedDate.getUTCDate() + daysToMonday);
+        weekStartIso = selectedDate.toISOString().split('T')[0];
 
-    // Sanitize for use in HTML attributes (additional escaping for quotes)
-    function sanitizeAttribute(text) {
-      if (text == null || text === undefined) return '';
-      return String(text)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#x27;')
-        .replace(/\//g, '&#x2F;');
-    }
-
-    // Loading state management
-    function setButtonLoading(button, loading, loadingText = '⏳ Loading...') {
-      if (!button) return;
-
-      if (loading) {
-        button.dataset.originalText = button.textContent;
-        button.textContent = loadingText;
-        button.disabled = true;
-        button.style.opacity = '0.6';
-        button.style.cursor = 'not-allowed';
-      } else {
-        button.textContent = button.dataset.originalText || button.textContent;
-        button.disabled = false;
-        button.style.opacity = '1';
-        button.style.cursor = 'pointer';
+        showLoading(`Fetching events for the week of ${weekStartIso}...`);
+        google.script.run
+          .withSuccessHandler(onFetchWeekSuccess)
+          .withFailureHandler(onFailure)
+          .api_getWeek(weekStartIso);
       }
-    }
 
-    function showGlobalLoading(message = 'Loading...') {
-      // Remove existing overlay if any
-      hideGlobalLoading();
-
-      const overlay = document.createElement('div');
-      overlay.id = 'globalLoading';
-      overlay.innerHTML = `
-        <div style="position:fixed; top:0; left:0; width:100%; height:100%;
-                    background:rgba(0,0,0,0.5); z-index:9999;
-                    display:flex; align-items:center; justify-content:center;">
-          <div style="background:white; padding:40px; border-radius:16px; text-align:center; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
-            <div style="font-size:48px; margin-bottom:16px; animation: spin 1s linear infinite;">⏳</div>
-            <div style="font-size:18px; font-weight:600; color:#333;">${sanitizeHTML(message)}</div>
-          </div>
-        </div>
-      `;
-
-      // Add spin animation
-      const style = document.createElement('style');
-      style.textContent = `
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
+      function onFetchWeekSuccess(data) {
+        hideLoading();
+        infoSection.style.display = 'none';
+        eventsData = data.events;
+        renderEvents(data.events, data.assignments);
+        if (data.events.length > 0) {
+          saveContainer.style.display = 'block';
+          copyScheduleButton.style.display = 'inline-block';
+        } else {
+          eventsContainer.innerHTML = '<div class="info-section"><p class="info-text">No events found for this week.</p></div>';
+          saveContainer.style.display = 'none';
+          copyScheduleButton.style.display = 'none';
         }
-      `;
-      overlay.appendChild(style);
+      }
 
-      document.body.appendChild(overlay);
-    }
+      // --- UI RENDERING ---
+      function renderEvents(events, assignments) {
+        eventsContainer.innerHTML = '';
+        events.forEach(event => {
+          const eventAssignments = assignments[event.id] || [];
+          const eventCard = createEventCard(event, eventAssignments);
+          eventsContainer.appendChild(eventCard);
+        });
+      }
 
-    function hideGlobalLoading() {
-      const overlay = document.getElementById('globalLoading');
-      if (overlay) overlay.remove();
-    }
+      function createEventCard(event, assignments) {
+        const card = document.createElement('div');
+        card.className = 'event-card';
+        card.dataset.eventId = event.id;
+        card.dataset.eventDate = event.date;
+        card.dataset.eventStart = event.start;
+        card.dataset.eventEnd = event.end;
+        card.dataset.eventTitle = event.title;
+        card.dataset.fullAddress = event.fullAddress || '';
 
-    // Initialize
-    google.script.run
-      .withSuccessHandler(init)
-      .withFailureHandler(showError)
-      .api_getBootstrap();
+        const eventDate = new Date(event.date + 'T00:00:00Z');
 
-    function init(boot) {
-      employeeList = boot.employees;
+        card.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: baseline;">
+            <h2 class="event-title">${event.title}</h2>
+            <span class="event-date-badge">${eventDate.toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' })}</span>
+          </div>
+          <p class="event-time">${formatTime(event.start)} - ${formatTime(event.end)}</p>
+          
+          <div class="location-section">
+             <label class="location-label">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                <a href="https://www.google.com/maps?q=${encodeURIComponent(event.fullAddress)}" target="_blank" class="location-link">
+                  <span>${event.fullAddress || 'No location specified'}</span>
+                </a>
+             </label>
+          </div>
 
-      // Set to current Monday
-      const today = new Date();
-      const monday = new Date(today);
-      const dow = monday.getDay();
-      const delta = (dow === 1 ? 0 : (dow === 0 ? -6 : (1 - dow)));
-      monday.setDate(monday.getDate() + delta);
-      $('#weekStart').value = monday.toISOString().slice(0,10);
-
-      $('#meta').innerHTML = `
-        <span>${sanitizeHTML(boot.settings.TIMEZONE) || 'Unknown TZ'}</span>
-        <span>${boot.employees.length} employees</span>
-        <span>${sanitizeHTML(boot.settings.CALENDAR_ID) || 'No calendar'}</span>
-      `;
-
-      loadWeek();
-    }
-
-    function loadWeek() {
-      const w = $('#weekStart').value;
-      const fetchBtn = document.querySelector('.primary');
-
-      // Show loading state
-      $('#events').innerHTML = '<div class="loader">Loading events...</div>';
-      setButtonLoading(fetchBtn, true, '⏳ Loading...');
-
-      google.script.run
-        .withSuccessHandler(data => {
-          renderWeek(data);
-          setButtonLoading(fetchBtn, false);
-        })
-        .withFailureHandler(err => {
-          showError(err);
-          setButtonLoading(fetchBtn, false);
-          $('#events').innerHTML = '<div class="loader" style="color: #f56565;">Failed to load events. Please try again.</div>';
-        })
-        .api_getWeek(w);
-    }
-
-    function renderWeek(data) {
-      weekData = data;
-      const container = $('#events');
-      container.innerHTML = '';
-
-      if (!data.events || data.events.length === 0) {
-        container.innerHTML = `
-          <div class="empty-state">
-            <div style="font-size:24px;color:#999">No events this week</div>
+          <div class="time-slot-container" style="margin-top: 1rem;">
+            <label class="time-slot-label">Assign Staff</label>
+            <div class="staff-assignments-container">
+              ${assignments.map(staff => createStaffRow(staff.name, staff.start, staff.end)).join('')}
+            </div>
+            <button class="btn-add-staff" style="margin-top: 0.5rem;">+ Add Staff</button>
+          </div>
+          
+           <div class="notes-section" style="margin-top: 1rem;">
+              <label for="event-notes-${event.id}" class="notes-label">Event Notes</label>
+              <textarea id="event-notes-${event.id}" class="notes-textarea" rows="3" placeholder="Add any specific instructions for this event...">${event.notes || ''}</textarea>
           </div>
         `;
-        return;
+
+        card.querySelector('.btn-add-staff').addEventListener('click', () => addStaffRow(card, event));
+        card.querySelectorAll('.btn-remove-staff').forEach(btn => {
+            btn.addEventListener('click', (e) => e.target.closest('.staff-assignment-row').remove());
+        });
+
+        return card;
+      }
+      
+      function addStaffRow(card, event) {
+          const container = card.querySelector('.staff-assignments-container');
+          const newRowHTML = createStaffRow('', event.start, event.end);
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = newRowHTML;
+          const newRowElement = tempDiv.firstElementChild;
+          newRowElement.querySelector('.btn-remove-staff').addEventListener('click', (e) => e.target.closest('.staff-assignment-row').remove());
+          container.appendChild(newRowElement);
       }
 
-      data.events.forEach((ev, idx) => {
-        const card = createEventCard(ev, idx);
-        container.appendChild(card);
-      });
-    }
-
-    function createEventCard(ev, idx) {
-      const div = document.createElement('div');
-      div.className = 'event-card';
-      div.dataset.eventIdx = idx;
-
-      // Display full address if available, otherwise city/state, otherwise event location raw
-      let location = '';
-      if (ev.fullAddress) {
-        location = ev.fullAddress;
-      } else if (ev.city || ev.state) {
-        location = [ev.city, ev.state].filter(Boolean).join(', ');
-      } else if (ev.locationRaw) {
-        location = ev.locationRaw;
-      } else {
-        location = 'No location';
-      }
-
-      // Get existing assignments or create empty array
-      const assignments = weekData.assignments?.[ev.id] || [];
-
-      // Build location display with map link if available
-      let locationHTML = '';
-      if (ev.mapLink) {
-        // Use sanitizeURL to prevent javascript: and data: URL injection
-        locationHTML = `<a href="${sanitizeURL(ev.mapLink)}" target="_blank" rel="noopener noreferrer" style="color: #667eea; text-decoration: none; word-break: break-word;">📍 ${sanitizeHTML(location)}</a>`;
-      } else {
-        locationHTML = `<span style="word-break: break-word;">📍 ${sanitizeHTML(location)}</span>`;
-      }
-
-      // Add "Add Location" button for events without location
-      if (!ev.locationRaw || ev.locationRaw === 'No location') {
-        locationHTML += `<button class="edit-location-btn" onclick="openLocationModal(${idx})">+ Add Location</button>`;
-      } else if (ev.venueSource === 'database') {
-        locationHTML += `<button class="edit-location-btn" onclick="openLocationModal(${idx})">✏️ Edit</button>`;
-      }
-
-      // Format date display for multi-day events
-      let dateDisplay = formatDate(ev.date);
-      if (ev.isMultiDay && ev.endDate) {
-        dateDisplay += ` - ${formatDate(ev.endDate)} (${ev.dayCount} days)`;
-      }
-
-      div.innerHTML = `
-        <div class="event-header">
-          <div class="pill">${sanitizeHTML(dateDisplay)}</div>
-          <div class="time">${sanitizeHTML(ev.start)} – ${sanitizeHTML(ev.end)}</div>
-        </div>
-        <div class="event-title">${sanitizeHTML(ev.title)}</div>
-        <div class="location">${locationHTML}</div>
-
-        <div class="assignments">
-          <div style="margin-bottom: 16px; padding-bottom: 16px; border-bottom: 2px solid #f0f0f0;">
-            <label style="display: block; font-size: 13px; font-weight: 600; color: #666; margin-bottom: 8px;">
-              ⏰ Event Time Slot
-            </label>
-            <div style="display: flex; gap: 8px; align-items: center;">
-              <input type="time" id="event-start-${idx}" value="${sanitizeAttribute(ev.start)}" style="flex: 1; padding: 12px; font-size: 15px; min-height: 48px; border: 1px solid #ddd; border-radius: 8px;">
-              <span style="color: #666; font-weight: 600;">–</span>
-              <input type="time" id="event-end-${idx}" value="${sanitizeAttribute(ev.end)}" style="flex: 1; padding: 12px; font-size: 15px; min-height: 48px; border: 1px solid #ddd; border-radius: 8px;">
+      function createStaffRow(selectedStaff, startTime, endTime) {
+          return `
+            <div class="staff-assignment-row" style="display: flex; gap: 1rem; align-items: center; margin-bottom: 0.5rem;">
+              <select class="staff-dropdown" style="flex-grow: 1;">
+                <option value="">Select Staff Member</option>
+                ${employees.map(emp => `<option value="${emp.Name}" ${emp.Name === selectedStaff ? 'selected' : ''}>${emp.Name}</option>`).join('')}
+              </select>
+              <input type="time" class="time-input start-time" value="${startTime || '09:00'}">
+              <input type="time" class="time-input end-time" value="${endTime || '17:00'}">
+              <button class="btn-remove-staff">Remove</button>
             </div>
-          </div>
-
-          <div class="assignments-header">
-            <span>Assigned Staff</span>
-            <button class="add-staff-btn" onclick="addStaffRow(${idx})">+ Add Staff</button>
-          </div>
-          <div id="staff-list-${idx}"></div>
-
-          <div style="margin-top: 16px;">
-            <label style="display: block; font-size: 13px; font-weight: 600; color: #666; margin-bottom: 8px;">
-              📝 Event Notes (optional)
-            </label>
-            <textarea
-              id="event-notes-${idx}"
-              placeholder="Add notes (e.g., daily schedule, special instructions, parking info...)"
-              style="width: 100%; min-height: 80px; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-family: inherit; font-size: 14px; resize: vertical;"
-            ></textarea>
-          </div>
-
-          <button class="save-btn" onclick="saveAssignments(${idx})">Save Assignments</button>
-        </div>
-      `;
-
-      // Render existing assignments
-      setTimeout(() => {
-        renderStaffList(idx, assignments, ev.start, ev.end);
-        // Load existing notes if available
-        if (ev.notes) {
-          const notesField = document.getElementById(`event-notes-${idx}`);
-          if (notesField) notesField.value = ev.notes;
-        }
-      }, 0);
-
-      return div;
-    }
-
-    function renderStaffList(eventIdx, assignments, defaultStart, defaultEnd) {
-      const container = document.getElementById(`staff-list-${eventIdx}`);
-      container.innerHTML = '';
-
-      if (assignments.length === 0) {
-        // Add one empty row by default
-        addStaffRow(eventIdx, '', defaultStart, defaultEnd);
-        return;
+          `;
       }
 
-      assignments.forEach((assign, staffIdx) => {
-        addStaffRow(eventIdx, assign.name, assign.start, assign.end, staffIdx);
-      });
-    }
+      // --- DATA SAVING ---
+      function saveAllAssignments() {
+        showLoading('Saving assignments...');
+        const eventCards = document.querySelectorAll('.event-card');
+        let allSaves = [];
 
-    function addStaffRow(eventIdx, selectedName = '', startTime = null, endTime = null, staffIdx = null) {
-      const container = document.getElementById(`staff-list-${eventIdx}`);
-      const row = document.createElement('div');
-      row.className = 'staff-row';
+        eventCards.forEach(card => {
+          const eventId = card.dataset.eventId;
+          const eventData = {
+            title: card.dataset.eventTitle,
+            date: card.dataset.eventDate,
+            start: card.dataset.eventStart,
+            end: card.dataset.eventEnd,
+            fullAddress: card.dataset.fullAddress,
+            notes: card.querySelector('.notes-textarea').value.trim()
+          };
 
-      if (staffIdx === null) {
-        staffIdx = container.children.length;
-      }
-
-      row.innerHTML = `
-        <select data-event="${eventIdx}" data-staff="${staffIdx}" style="flex: 1;">
-          <option value="">-- Select Employee --</option>
-          ${employeeList.map(emp =>
-            `<option value="${sanitizeAttribute(emp.Name)}" ${emp.Name === selectedName ? 'selected' : ''}>${sanitizeHTML(emp.Name)} (${sanitizeHTML(emp.Role)})</option>`
-          ).join('')}
-        </select>
-        <button class="remove-btn" onclick="removeStaffRow(this)">Remove</button>
-      `;
-
-      container.appendChild(row);
-    }
-
-    function removeStaffRow(btn) {
-      btn.parentElement.remove();
-    }
-
-    function saveAssignments(eventIdx) {
-      const event = weekData.events[eventIdx];
-      const container = document.getElementById(`staff-list-${eventIdx}`);
-      const rows = container.querySelectorAll('.staff-row');
-
-      // Get event-level times from input fields
-      const eventStart = document.getElementById(`event-start-${eventIdx}`).value;
-      const eventEnd = document.getElementById(`event-end-${eventIdx}`).value;
-
-      if (!eventStart || !eventEnd) {
-        alert('Please enter both start and end times for the event');
-        return;
-      }
-
-      const assignments = [];
-      rows.forEach(row => {
-        const select = row.querySelector('select');
-
-        if (select.value) {
-          // Use event-level times for all staff
-          assignments.push({
-            name: select.value,
-            start: eventStart,
-            end: eventEnd
+          const assignments = [];
+          card.querySelectorAll('.staff-assignment-row').forEach(row => {
+            const name = row.querySelector('.staff-dropdown').value;
+            const start = row.querySelector('.start-time').value;
+            const end = row.querySelector('.end-time').value;
+            if (name && start && end) {
+              assignments.push({ name, start, end });
+            }
           });
-        }
-      });
-
-      // Capture notes
-      const notesField = document.getElementById(`event-notes-${eventIdx}`);
-      const notes = notesField ? notesField.value.trim() : '';
-
-      // Add notes and updated times to event object
-      const eventWithNotes = { ...event, notes: notes, start: eventStart, end: eventEnd };
-
-      // Find save button and show loading state
-      const eventCard = document.querySelector(`[data-event-idx="${eventIdx}"]`);
-      const saveBtn = eventCard ? eventCard.querySelector('.save-btn') : null;
-
-      setButtonLoading(saveBtn, true, '⏳ Saving...');
-
-      // Save to backend
-      google.script.run
-        .withSuccessHandler(() => {
-          setButtonLoading(saveBtn, false);
-          alert('✅ Assignments saved successfully!');
-          // Update local data
-          if (!weekData.assignments) weekData.assignments = {};
-          weekData.assignments[event.id] = assignments;
-          // Update notes and times in local data
-          weekData.events[eventIdx].notes = notes;
-          weekData.events[eventIdx].start = eventStart;
-          weekData.events[eventIdx].end = eventEnd;
-        })
-        .withFailureHandler(err => {
-          setButtonLoading(saveBtn, false);
-          showError(err);
-        })
-        .api_saveAssignment($('#weekStart').value, event.id, eventWithNotes, assignments);
-    }
-
-    function copySchedule() {
-      const w = $('#weekStart').value;
-      const copyBtn = document.querySelector('.success');
-
-      // Show loading state
-      setButtonLoading(copyBtn, true, '⏳ Generating...');
-
-      google.script.run
-        .withSuccessHandler((res) => {
-          setButtonLoading(copyBtn, false);
-
-          if (!res.success) {
-            showError({ message: 'Failed to generate schedule' });
-            return;
-          }
-
-          // Show preview modal
-          $('#schedulePreview').textContent = res.message;
-          $('#scheduleCharCount').textContent = `${res.characterCount} characters, ${res.eventCount} events`;
-          $('#scheduleModal').style.display = 'block';
-
-          // Store message for copying
-          window.currentScheduleMessage = res.message;
-        })
-        .withFailureHandler(err => {
-          setButtonLoading(copyBtn, false);
-          showError(err);
-        })
-        .api_getScheduleMessage(w);
-    }
-
-    function closeScheduleModal() {
-      $('#scheduleModal').style.display = 'none';
-    }
-
-    function copyToClipboard() {
-      const message = window.currentScheduleMessage;
-
-      if (!message) {
-        alert('No schedule to copy');
-        return;
-      }
-
-      // Use modern clipboard API
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(message)
-          .then(() => {
-            alert('✅ Schedule copied to clipboard!\n\nYou can now paste it into:\n• iMessage\n• WhatsApp\n• Slack\n• Apple Notes\n• Any messaging app');
-            closeScheduleModal();
-          })
-          .catch(err => {
-            // Fallback for older browsers
-            fallbackCopyToClipboard(message);
+          
+          const savePromise = new Promise((resolve, reject) => {
+            google.script.run
+              .withSuccessHandler(resolve)
+              .withFailureHandler(reject)
+              .api_saveAssignment(weekStartIso, eventId, eventData, assignments);
           });
-      } else {
-        // Fallback for older browsers
-        fallbackCopyToClipboard(message);
-      }
-    }
+          allSaves.push(savePromise);
+        });
 
-    function fallbackCopyToClipboard(text) {
-      const textArea = document.createElement('textarea');
-      textArea.value = text;
-      textArea.style.position = 'fixed';
-      textArea.style.left = '-999999px';
-      document.body.appendChild(textArea);
-      textArea.focus();
-      textArea.select();
-
-      try {
-        document.execCommand('copy');
-        alert('✅ Schedule copied to clipboard!\n\nYou can now paste it into your group chat.');
-        closeScheduleModal();
-      } catch (err) {
-        alert('❌ Failed to copy. Please manually select and copy the text above.');
+        Promise.all(allSaves)
+          .then(onSaveSuccess)
+          .catch(onFailure);
       }
 
-      document.body.removeChild(textArea);
-    }
-
-    function showError(err) {
-      console.error('Error:', err);
-      alert('Error: ' + sanitizeHTML(err.message || 'Something went wrong'));
-    }
-
-    function formatDate(dateStr) {
-      const date = new Date(dateStr + 'T00:00:00');
-      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      return `${days[date.getDay()]} ${months[date.getMonth()]} ${date.getDate()}`;
-    }
-
-    // Location modal functions
-    let currentLocationEventIdx = null;
-
-    function openLocationModal(eventIdx) {
-      currentLocationEventIdx = eventIdx;
-      const event = weekData.events[eventIdx];
-
-      $('#modalEventName').value = event.title;
-      $('#modalAddress').value = event.fullAddress || event.locationRaw || '';
-      $('#modalCity').value = event.city || '';
-      $('#modalState').value = event.state || '';
-      $('#modalNotes').value = '';
-
-      $('#locationModal').style.display = 'block';
-    }
-
-    function closeLocationModal() {
-      $('#locationModal').style.display = 'none';
-      currentLocationEventIdx = null;
-    }
-
-    function saveLocationModal() {
-      if (currentLocationEventIdx === null) return;
-
-      const event = weekData.events[currentLocationEventIdx];
-      const venueName = event.title;
-      const fullAddress = $('#modalAddress').value.trim();
-      const city = $('#modalCity').value.trim();
-      const state = $('#modalState').value.trim().toUpperCase();
-      const notes = $('#modalNotes').value.trim();
-
-      if (!fullAddress && !city) {
-        alert('Please enter at least a full address or city');
-        return;
+      function onSaveSuccess() {
+        hideLoading();
+        showSuccess('All assignments saved successfully!');
+        fetchWeekData(); // Refresh data to show saved state
+      }
+      
+      // --- SCHEDULE GENERATION ---
+      function generateAndCopySchedule() {
+        showLoading('Generating group chat message...');
+        google.script.run
+          .withSuccessHandler(onGenerateScheduleSuccess)
+          .withFailureHandler(onFailure)
+          .api_getScheduleMessage(weekStartIso);
       }
 
-      // Show global loading while saving and reloading
-      showGlobalLoading('Saving location...');
-
-      google.script.run
-        .withSuccessHandler(() => {
-          alert('✅ Location saved successfully! Refreshing...');
-          closeLocationModal();
-          loadWeek(); // Reload to show updated location (has its own loading state)
-          hideGlobalLoading();
-        })
-        .withFailureHandler(err => {
-          hideGlobalLoading();
-          showError(err);
-        })
-        .api_saveVenue(venueName, fullAddress, city, state, notes);
-    }
-
-    // Close modal when clicking outside
-    window.onclick = function(event) {
-      if (event.target == $('#locationModal')) {
-        closeLocationModal();
+      function onGenerateScheduleSuccess(result) {
+        hideLoading();
+        if (result.success) {
+          schedulePreview.value = result.message;
+          schedulePreviewContainer.style.display = 'block';
+          navigator.clipboard.writeText(result.message).then(() => {
+            showSuccess('Schedule message copied to clipboard!');
+          }, () => {
+            showError('Could not copy to clipboard, but you can copy from the text box below.');
+          });
+        } else {
+          onFailure({ message: result.message });
+        }
       }
-    }
+
+      // --- UTILITIES ---
+      function showLoading(message) {
+        document.getElementById('loading-message').textContent = message;
+        document.getElementById('loading-overlay').style.display = 'flex';
+      }
+
+      function hideLoading() {
+        document.getElementById('loading-overlay').style.display = 'none';
+      }
+      
+      function showSuccess(message) {
+        alert(message); // Simple feedback for now
+      }
+
+      function showError(message) {
+        alert('Error: ' + message);
+      }
+
+      function onFailure(error) {
+        hideLoading();
+        console.error('An error occurred:', error);
+        showError(error.message || 'An unknown error occurred.');
+      }
+      
+      function formatTime(timeStr) {
+        if (!timeStr || !timeStr.includes(':')) return 'All Day';
+        const [h, m] = timeStr.split(':');
+        const hours = parseInt(h, 10);
+        if (isNaN(hours)) return 'N/A';
+        const suffix = hours >= 12 ? 'pm' : 'am';
+        const civilianHours = ((hours + 11) % 12 + 1);
+        return `${civilianHours}:${m}${suffix}`;
+      }
+
+      // --- START THE APP ---
+      initialize();
+    });
   </script>
 </body>
 </html>

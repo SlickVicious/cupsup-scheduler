@@ -8,9 +8,6 @@
 credentials.json
 service-account.json
 
-# Twilio Config (if local)
-twilio-config.json
-
 # Google Apps Script local files
 **/appsscript.json
 

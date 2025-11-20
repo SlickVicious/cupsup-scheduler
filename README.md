@@ -1,6 +1,6 @@
 # CupsUp Scheduler
 
-A Google Apps Script-based scheduling system for managing employee assignments and sending automated group chat notifications via Twilio SMS.
+A Google Apps Script-based scheduling system for managing employee assignments and coordinating event schedules.
 
 ## ✨ Features
 
@@ -8,7 +8,7 @@ A Google Apps Script-based scheduling system for managing employee assignments a
 - **📅 Calendar Integration**: Syncs with Google Calendar to fetch events (supports multi-day events)
 - **👥 Manual Assignment**: Assign employees to specific events with custom time slots per staff member
 - **📍 Venue Management**: Auto-save venue locations from calendar events, searchable venue database
-- **💬 Group Chat Notifications**: Send weekly schedules via Twilio SMS to multiple recipients
+- **📋 Schedule Generation**: Generate formatted weekly schedules for distribution
 - **👨‍💼 Employee Management**: Track employee information with validated phone numbers and roles
 - **🔍 Automated Testing**: Built-in test suite to validate configuration and connectivity
 - **🎨 Custom UI**: Mobile-responsive web interface for easy schedule management
@@ -17,15 +17,13 @@ A Google Apps Script-based scheduling system for managing employee assignments a
 - **🔒 XSS Protection**: Full HTML sanitization on all dynamic content
 - **🛡️ XFrame Protection**: Clickjacking prevention (DENY mode)
 - **📱 Phone Validation**: Strict E.164 format validation (+1XXXXXXXXXX)
-- **⏱️ Rate Limiting**: 60-second cooldown + daily send limits (configurable)
-- **💰 Cost Protection**: Message size limits, recipient limits, cost estimation
 - **✅ Data Validation**: Comprehensive input validation, duplicate detection, overlap checking
 
 ### User Experience
 - **🗓️ Multi-Day Event Support**: Handle events spanning multiple days
 - **⏰ Individual Time Slots**: Assign different start/end times per staff member
 - **🗺️ Google Maps Integration**: Automatic map links for all event locations
-- **📊 Detailed Reporting**: SMS status tracking, audit logs, error handling
+- **📊 Detailed Reporting**: Assignment tracking, audit logs, error handling
 - **🧪 Diagnostic Tools**: Custom menu with individual test functions
 
 ## 📁 Project Structure
@@ -112,10 +110,6 @@ create complete CupsUp Scheduler repository use a sub agent. Tell the sub agent 
 ## Prerequisites
 
 - Google Account with access to Google Sheets and Google Calendar
-- Twilio Account with:
-  - Account SID
-  - Auth Token
-  - Twilio Phone Number (SMS-enabled)
 
 ## Setup Instructions
 
@@ -128,7 +122,6 @@ Create a new Google Sheet with four sheets:
 |-----|-------|
 | CALENDAR_ID | your-calendar-id@group.calendar.google.com |
 | TIMEZONE | America/New_York |
-| TWILIO_FROM | +15551234567 |
 | GROUP_CHAT_NUMBERS | +15559876543,+15551112222 |
 
 #### Employees Sheet
@@ -158,15 +151,7 @@ Create a new Google Sheet with four sheets:
 5. Create a new HTML file named `ui` and paste contents from `src/ui.html`
 6. Save the project with a name like "CupsUp Scheduler"
 
-### 3. Set Script Properties
-
-1. In Apps Script editor, click **Project Settings** (gear icon)
-2. Scroll to **Script Properties**
-3. Add the following properties:
-   - `TWILIO_SID`: Your Twilio Account SID
-   - `TWILIO_AUTH`: Your Twilio Auth Token
-
-### 4. Deploy Web App
+### 3. Deploy Web App
 
 1. In Apps Script editor, click **Deploy > New deployment**
 2. Select type: **Web app**
@@ -193,12 +178,12 @@ Create a new Google Sheet with four sheets:
    - Select employees and their time slots
    - Save assignments
 
-### Sending Group Chat
+### Generating Schedule
 
 1. Ensure all events for the week are assigned
-2. Click "Send Group Chat" button
-3. Confirm the action
-4. System sends formatted schedule to all numbers in `GROUP_CHAT_NUMBERS`
+2. Click "Generate Schedule" button
+3. Review the formatted schedule message
+4. Copy the schedule for distribution via your preferred communication method
 
 ### Venue Management
 
@@ -300,12 +285,6 @@ clasp pull
 - Check calendar sharing permissions
 - Run "Test Calendar Access" from menu
 
-### SMS Not Sending
-- Verify Twilio credentials in Script Properties
-- Check Twilio account balance
-- Ensure phone numbers are in +1XXXXXXXXXX format
-- Run "Test Twilio Credentials" from menu
-
 ### Assignments Not Saving
 - Check Assignments sheet exists
 - Verify sheet permissions
@@ -313,11 +292,10 @@ clasp pull
 
 ## Security Notes
 
-- **Never commit** Twilio credentials to version control
 - Use Google Apps Script **Script Properties** for sensitive data
 - Restrict web app access appropriately
-- Review phone numbers before bulk sending
-- Test with your number first using "Send TEST Message"
+- Review employee data carefully before saving
+- Always test configuration changes with the automated test suite
 
 ## License
 
@@ -338,8 +316,8 @@ For issues and questions:
 #### Core Features
 - ✅ Manual assignment system with individual time slots
 - ✅ Multi-day event support
-- ✅ Group chat via Twilio SMS
-- ✅ Automated testing suite with 7+ individual tests
+- ✅ Schedule generation and formatting
+- ✅ Automated testing suite with 5+ individual tests
 - ✅ Custom menu interface with diagnostic tools
 - ✅ Venue management (auto-save, lookup, bulk import)
 
@@ -348,8 +326,6 @@ For issues and questions:
 - ✅ XFrame protection (DENY mode)
 - ✅ Phone number validation (+1XXXXXXXXXX format)
 - ✅ Duplicate phone detection
-- ✅ Rate limiting (60s cooldown + daily limits)
-- ✅ Cost protection (recipient limits, message size limits)
 
 #### Validation & Error Handling
 - ✅ Comprehensive input validation (time format, date format, string lengths)

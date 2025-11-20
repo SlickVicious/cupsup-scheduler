@@ -1,0 +1,304 @@
+<!-- 
+  CUPS UP SCHEDULER - DARK THEME UPDATE (REVISION 2 - EXACT MATCH)
+  Copy and paste these styles into your Google Apps Script HTML file (likely 'Index.html' or 'Stylesheet.html').
+  Ensure these styles are loaded AFTER any existing styles to override them.
+-->
+
+<!-- Font Loading -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    /* 
+      MIDNIGHT SAUCE THEME TOKENS 
+      Exact match from src/frontend/tailwind.config.js
+    */
+
+    /* Backgrounds */
+    --warm-950: #0c0a09; /* Main App Background */
+    --warm-900: #1c1917; /* Cards, Inputs, Panels */
+    --warm-800: #292524; /* Borders, Hover States */
+    --warm-700: #44403c; /* Secondary Borders */
+
+    /* Text */
+    --warm-50:  #fafaf9; /* Body Text */
+    --warm-400: #c7c2bf; /* Muted Text (Increased Contrast) */
+    --sauce-50: #fff1f1; /* Headings */
+
+    /* Brand Colors */
+    --sauce-600: #ed0e0e; /* Primary Brand Red */
+    --sauce-700: #c80606; /* Primary Hover */
+    --sauce-900: #880d0d; /* Deep Red (Shadows) */
+    
+    /* Accents */
+    --amber-500: #f59e0b; /* Warning / Edit */
+    --herb-500:  #22c55e; /* Success / Add */
+    --herb-600:  #16a34a; /* Success Hover */
+
+    /* Semantic Mappings */
+    --bg-base: var(--warm-950);
+    --bg-card: var(--warm-900);
+    --bg-input: var(--warm-900);
+    --border-default: var(--warm-800);
+    --text-primary: var(--warm-50);
+    --text-secondary: var(--warm-400);
+    --text-heading: var(--sauce-50);
+    --primary-action: var(--sauce-600);
+    --primary-hover: var(--sauce-700);
+
+    /* Typography */
+    --font-heading: 'Manrope', -apple-system, sans-serif;
+    --font-body: 'Inter', -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  /* Global Styles */
+  body {
+    background-color: var(--bg-base) !important;
+    color: var(--text-primary) !important;
+    font-family: var(--font-body) !important;
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+  }
+
+  /* Typography */
+  h1, h2, h3, h4, h5, h6, .title {
+    font-family: var(--font-heading) !important;
+    color: var(--text-heading) !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.02em !important;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--warm-900);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--warm-700);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--warm-600); /* #57534e */
+  }
+
+  /* Header Section */
+  header {
+    background-color: var(--bg-card) !important;
+    border-bottom: 1px solid var(--border-default) !important;
+    padding: 1.5rem !important;
+  }
+
+  .subtitle {
+    color: var(--text-secondary) !important;
+    font-size: 0.875rem !important;
+  }
+
+  /* Buttons - Matching .btn-primary and .btn-secondary */
+  button {
+    cursor: pointer !important;
+    transition: all 0.2s ease-in-out !important;
+    font-family: var(--font-body) !important;
+  }
+
+  .btn-fetch-week, .btn-save-assignments {
+    background-color: var(--primary-action) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 0.5rem !important; /* rounded-lg */
+    padding: 0.5rem 1rem !important;
+    font-weight: 500 !important;
+    box-shadow: 0 10px 15px -3px rgba(136, 13, 13, 0.2) !important; /* shadow-lg shadow-sauce-900/20 */
+  }
+
+  .btn-fetch-week:hover, .btn-save-assignments:hover {
+    background-color: var(--primary-hover) !important;
+    transform: translateY(-1px);
+  }
+
+  .btn-copy-schedule, .btn-add-staff {
+    background-color: var(--herb-500) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 0.5rem !important;
+    padding: 0.5rem 1rem !important;
+    font-weight: 500 !important;
+  }
+
+  .btn-copy-schedule:hover, .btn-add-staff:hover {
+    background-color: var(--herb-600) !important;
+  }
+
+  /* Date Picker & Inputs */
+  input, select, textarea, .date-picker, .staff-dropdown, .time-input {
+    background-color: var(--warm-900) !important;
+    border: 1px solid var(--warm-800) !important;
+    color: var(--text-primary) !important;
+    border-radius: 0.5rem !important; /* rounded-lg */
+    padding: 0.5rem 0.75rem !important;
+    font-family: var(--font-body) !important;
+    transition: all 0.2s ease-in-out !important;
+  }
+
+  input:focus, select:focus, textarea:focus, .date-picker:focus, .staff-dropdown:focus, .time-input:focus {
+    outline: none !important;
+    border-color: var(--sauce-600) !important;
+    box-shadow: 0 0 0 3px rgba(237, 14, 14, 0.2) !important;
+    background-color: var(--warm-800) !important;
+  }
+
+  /* Info Section & Cards */
+  .info-section, .event-card, .time-slot-container {
+    background-color: var(--bg-card) !important;
+    border: 1px solid var(--border-default) !important;
+    border-radius: 0.75rem !important; /* rounded-xl */
+    padding: 1.5rem !important;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important; /* shadow-card */
+  }
+
+  .info-text {
+    color: var(--text-secondary) !important;
+    font-size: 0.875rem !important;
+  }
+
+  /* Event Cards Specifics */
+  .event-card:hover {
+    border-color: var(--warm-700) !important;
+    transform: translateY(-2px) !important;
+  }
+
+  .event-date-badge {
+    background-color: var(--warm-800) !important;
+    color: var(--text-heading) !important;
+    border: 1px solid var(--warm-700) !important;
+    padding: 0.25rem 0.75rem !important;
+    border-radius: 9999px !important;
+    font-weight: 600 !important;
+    font-size: 0.75rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+  }
+
+  .event-title {
+    color: var(--text-heading) !important;
+    font-size: 1.25rem !important;
+    font-weight: 700 !important;
+    margin: 1rem 0 !important;
+  }
+
+  .event-time {
+    color: var(--text-secondary) !important;
+    font-family: var(--font-mono) !important;
+    font-size: 0.875rem !important;
+  }
+
+  /* Location Section */
+  .location-section {
+    background-color: var(--warm-950) !important; /* Slightly darker inner container */
+    border: 1px solid var(--warm-800) !important;
+    border-radius: 0.5rem !important;
+    padding: 1rem !important;
+    margin: 1rem 0 !important;
+  }
+
+  .location-label {
+    color: var(--sauce-600) !important;
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+  }
+
+  .btn-add-location {
+    background-color: var(--amber-500) !important;
+    color: white !important;
+    border: none !important;
+    padding: 0.25rem 0.75rem !important;
+    border-radius: 0.375rem !important;
+    font-weight: 600 !important;
+    font-size: 0.75rem !important;
+  }
+
+  /* Time Slot Inputs */
+  .time-slot-label {
+    color: var(--sauce-600) !important;
+    font-size: 0.875rem !important;
+    font-weight: 600 !important;
+    margin-bottom: 0.75rem !important;
+  }
+
+  .time-input {
+    font-family: var(--font-mono) !important;
+  }
+
+  /* Staff Assignment */
+  .staff-section-header {
+    color: var(--text-secondary) !important;
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    margin-bottom: 1rem !important;
+  }
+
+  .btn-remove-staff {
+    background-color: transparent !important;
+    color: var(--sauce-600) !important;
+    border: 1px solid rgba(237, 14, 14, 0.3) !important;
+    padding: 0.25rem 0.75rem !important;
+    border-radius: 0.375rem !important;
+    font-weight: 600 !important;
+    font-size: 0.75rem !important;
+  }
+  
+  .btn-remove-staff:hover {
+    background-color: rgba(237, 14, 14, 0.1) !important;
+    border-color: var(--sauce-600) !important;
+  }
+
+  /* Event Notes */
+  .notes-label {
+    color: var(--amber-500) !important;
+    font-size: 0.875rem !important;
+    font-weight: 500 !important;
+    margin-bottom: 0.5rem !important;
+    display: block !important;
+  }
+
+  .notes-textarea::placeholder {
+    color: var(--warm-700) !important; /* Darker placeholder */
+  }
+
+  /* Save Button Container */
+  .save-container {
+    margin-top: 2rem !important;
+    padding-top: 2rem !important;
+    border-top: 1px solid var(--border-default) !important;
+  }
+
+  .btn-save-assignments {
+    width: 100% !important;
+    padding: 1rem !important;
+    font-size: 1.125rem !important;
+    font-weight: 700 !important;
+  }
+</style>

@@ -4,24 +4,19 @@
 1. [Prerequisites](#prerequisites)
 2. [Google Sheets Setup](#google-sheets-setup)
 3. [Google Apps Script Deployment](#google-apps-script-deployment)
-4. [Twilio Configuration](#twilio-configuration)
-5. [Testing](#testing)
-6. [Production Deployment](#production-deployment)
-7. [Troubleshooting](#troubleshooting)
+4. [Testing](#testing)
+5. [Production Deployment](#production-deployment)
+6. [Troubleshooting](#troubleshooting)
 
 ## Prerequisites
 
 ### Required Accounts
 - [ ] Google Account with Google Workspace or personal Gmail
-- [ ] Twilio Account (free trial or paid)
 - [ ] Access to Google Calendar
 
 ### Required Information
 - [ ] Google Calendar ID
-- [ ] Twilio Account SID
-- [ ] Twilio Auth Token
-- [ ] Twilio Phone Number (SMS-enabled)
-- [ ] Employee phone numbers (E.164 format)
+- [ ] Employee phone numbers (E.164 format: +1XXXXXXXXXX)
 
 ## Google Sheets Setup
 
@@ -42,13 +37,11 @@
 |---------|-----------|
 | CALENDAR_ID | your-calendar@group.calendar.google.com |
 | TIMEZONE | America/New_York |
-| TWILIO_FROM | +15551234567 |
 | GROUP_CHAT_NUMBERS | +15559876543,+15551112222 |
 
 **Important Notes:**
 - Get your Calendar ID: Open Google Calendar → Settings → Your calendar → "Calendar ID"
 - TIMEZONE: Use [IANA timezone names](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)
-- TWILIO_FROM: Your Twilio phone number in +1XXXXXXXXXX format
 - GROUP_CHAT_NUMBERS: Comma-separated list of recipient phone numbers
 
 ### Step 3: Create Employees Sheet
@@ -116,31 +109,6 @@ Leave row 2+ empty - system will populate automatically.
 2. Name it "CupsUp Scheduler"
 3. Save
 
-## Twilio Configuration
-
-### Step 1: Get Twilio Credentials
-
-1. Log in to [twilio.com/console](https://www.twilio.com/console)
-2. Find your **Account SID** (starts with "AC...")
-3. Find your **Auth Token** (click to reveal)
-4. Copy both to Script Properties (see above)
-
-### Step 2: Get Twilio Phone Number
-
-1. Go to **Phone Numbers > Manage > Active numbers**
-2. If you don't have one, click **Buy a number**
-3. Select a number with SMS capability
-4. Copy the number in E.164 format (+1XXXXXXXXXX)
-5. Add to Settings sheet as `TWILIO_FROM`
-
-### Step 3: Configure Messaging
-
-1. Click your Twilio phone number
-2. Under "Messaging", configure:
-   - Geo Permissions: Ensure US is enabled
-   - Alpha Sender: Leave default
-3. Save configuration
-
 ## Testing
 
 ### Step 1: Run Test Suite
@@ -152,7 +120,7 @@ Leave row 2+ empty - system will populate automatically.
 
 Expected output:
 ```
-✅ Passed: 7
+✅ Passed: 5
 ❌ Failed: 0
 ⚠️  Warnings: 0
 ```
@@ -164,20 +132,7 @@ Run each test individually to diagnose issues:
 1. **Test Settings Load** - Validates Settings sheet
 2. **Test Employee Load** - Validates Employees sheet
 3. **Test Calendar Access** - Checks calendar permissions
-4. **Test Twilio Credentials** - Validates Twilio setup
-5. **Test Fetch This Week** - Loads current week's events
-6. **Test Group Chat Numbers** - Validates recipient numbers
-
-### Step 3: Send Test Message
-
-**IMPORTANT:** Before running this test:
-
-1. Update `GROUP_CHAT_NUMBERS` in Settings to **YOUR PHONE NUMBER ONLY**
-2. Click **🧪 CupsUp Tests > Send TEST Message**
-3. Confirm the popup
-4. Check your phone within 60 seconds
-
-If you receive the message, Twilio is working correctly!
+4. **Test Fetch This Week** - Loads current week's events
 
 ## Production Deployment
 
@@ -210,13 +165,13 @@ If you receive the message, Twilio is working correctly!
 3. Example: `+15551234567,+15559876543,+15551112222`
 4. Verify format using **Test Group Chat Numbers**
 
-### Step 4: First Production Send
+### Step 4: First Schedule Generation
 
 1. Assign employees to events for the current week
 2. Double-check all assignments
-3. Click **Send Group Chat**
-4. Confirm the action
-5. Verify all recipients receive the message
+3. Click **Generate Schedule**
+4. Review the formatted schedule message
+5. Copy and distribute the schedule via your preferred communication method
 
 ## Troubleshooting
 
@@ -232,23 +187,6 @@ If you receive the message, Twilio is working correctly!
    - Click "..." → Settings and sharing
    - Under "Share with specific people", add your email
    - Set permission to "Make changes to events"
-
-### Twilio Not Sending
-
-**Error:** "Twilio error 401" or "Twilio error 403"
-
-**Solutions:**
-1. Verify TWILIO_SID and TWILIO_AUTH in Script Properties
-2. Check Twilio account status (suspended/trial limitations)
-3. Verify account balance (for paid accounts)
-4. Check Twilio phone number is active
-
-**Error:** "Twilio error 21211" (Invalid phone number)
-
-**Solutions:**
-1. Ensure all phone numbers are in +1XXXXXXXXXX format
-2. No spaces, dashes, or parentheses
-3. Run **Test Group Chat Numbers** to validate
 
 ### Assignments Not Saving
 

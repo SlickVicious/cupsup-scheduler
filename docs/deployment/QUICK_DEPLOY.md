@@ -28,7 +28,6 @@ In the "Settings" sheet, add:
 |---|---|
 | CALENDAR_ID | your-calendar-id@group.calendar.google.com |
 | TIMEZONE | America/New_York |
-| TWILIO_FROM | +15551234567 |
 | GROUP_CHAT_NUMBERS | +15551234567 |
 
 **⚠️ IMPORTANT:**
@@ -145,36 +144,7 @@ cat "/Users/animatedastronaut/VAULTS/CupSup Scheduler/src/ui.html"
 
 ---
 
-## 🔐 Step 6: Add Twilio Credentials (2 minutes)
-
-**⚠️ CRITICAL: Never put these in the Settings sheet!**
-
-1. In Apps Script editor, click **⚙️ Project Settings** (gear icon on left)
-
-2. Scroll to **"Script Properties"**
-
-3. Click **"Add script property"**
-
-4. Add First Property:
-   - Property: `TWILIO_SID`
-   - Value: `Your Twilio Account SID` (starts with AC...)
-
-5. Click **"Add script property"** again
-
-6. Add Second Property:
-   - Property: `TWILIO_AUTH`
-   - Value: `Your Twilio Auth Token`
-
-7. Click **"Save script properties"**
-
-**Get Twilio Credentials:**
-1. Go to: https://www.twilio.com/console
-2. Find Account SID and Auth Token on dashboard
-3. Click "Show" to reveal Auth Token
-
----
-
-## 🚀 Step 7: Deploy Web App (3 minutes)
+## 🚀 Step 6: Deploy Web App (3 minutes)
 
 1. In Apps Script editor, click **Deploy → New deployment**
 
@@ -201,7 +171,7 @@ cat "/Users/animatedastronaut/VAULTS/CupSup Scheduler/src/ui.html"
 
 ---
 
-## ✅ Step 8: Test Everything (5 minutes)
+## ✅ Step 7: Test Everything (5 minutes)
 
 ### Test 1: Custom Menu
 
@@ -219,9 +189,6 @@ cat "/Users/animatedastronaut/VAULTS/CupSup Scheduler/src/ui.html"
 **Click:** 🧪 CupsUp Tests → **2️⃣ Test Employee Load**
 - Should show your test employees
 
-**Click:** 🧪 CupsUp Tests → **4️⃣ Test Twilio Credentials**
-- Should show credentials found
-
 ### Test 3: Calendar Setup
 
 **First, share your calendar:**
@@ -237,18 +204,9 @@ cat "/Users/animatedastronaut/VAULTS/CupSup Scheduler/src/ui.html"
 **Click:** 🧪 CupsUp Tests → **3️⃣ Test Calendar Access**
 - Should show calendar name
 
-### Test 4: Send Test SMS
+### Test 4: Web Interface
 
-**⚠️ ONLY if GROUP_CHAT_NUMBERS is YOUR phone number!**
-
-1. Verify Settings sheet has YOUR number in GROUP_CHAT_NUMBERS
-2. **Click:** 🧪 CupsUp Tests → **📱 Send TEST Message**
-3. **Confirm:** Click "Yes"
-4. **Check your phone:** SMS should arrive in 30-60 seconds
-
-### Test 5: Web Interface
-
-1. **Open the Web App URL** you copied in Step 7
+1. **Open the Web App URL** you copied in Step 6
 2. **Click:** "📅 Fetch Week"
 3. **Should show:** Any calendar events for this week (or empty state if none)
 
